@@ -1,0 +1,1365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pair Tracker Demo</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #16181d; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #2563eb; --good: #15803d; --bad: #b91c1c; --warn: #b45309;
+    --good-bg: #dcfce7; --bad-bg: #fee2e2; --warn-bg: #fef3c7; --chip: #eef2f7; --sugg: #fff7d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1115; --card: #171a21; --ink: #e8eaed; --muted: #9aa3af; --line: #2a2f3a;
+      --accent: #60a5fa; --good: #4ade80; --bad: #f87171; --warn: #fbbf24;
+      --good-bg: #13301f; --bad-bg: #3a1717; --warn-bg: #3a2c0d; --chip: #222733; --sugg: #2f2a12;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+      --bg: #0f1115; --card: #171a21; --ink: #e8eaed; --muted: #9aa3af; --line: #2a2f3a;
+      --accent: #60a5fa; --good: #4ade80; --bad: #f87171; --warn: #fbbf24;
+      --good-bg: #13301f; --bad-bg: #3a1717; --warn-bg: #3a2c0d; --chip: #222733; --sugg: #2f2a12;
+    color-scheme: dark;
+  }
+  .demo-note { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--chip); color: var(--ink); font-size: 13px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 18px 16px 60px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+  h1 { font-size: 20px; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 12.5px; }
+  .badge { padding: 3px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; letter-spacing: .02em; }
+  .badge.live { background: var(--bad); color: #fff; }
+  .badge.dry, .badge.demo { background: var(--chip); color: var(--muted); }
+  .pill { background: var(--chip); padding: 2px 8px; border-radius: 6px; font-size: 12.5px; white-space: nowrap; }
+  .pill.ok { background: var(--good-bg); color: var(--good); }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); }
+  .spacer { flex: 1; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+           border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.danger { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 600; }
+  button.small { padding: 3px 9px; font-size: 12.5px; }
+  button:disabled { opacity: .5; cursor: default; }
+  section.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 12px 0; }
+  .tile { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .tile .k { color: var(--muted); font-size: 12px; }
+  .tile .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tile .s { color: var(--muted); font-size: 12px; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  th.l, td.l { text-align: left; }
+  td.wrap { white-space: normal; min-width: 180px; text-align: left; }
+  tr.group th { text-align: center; border-bottom: none; color: var(--ink); }
+  tr.group th.cur { background: var(--chip); border-radius: 6px 6px 0 0; }
+  tr.group th.mid { background: var(--warn-bg); border-radius: 6px 6px 0 0; }
+  tr.sugg td { background: var(--sugg); }
+  tr.ghost td { opacity: .62; font-style: italic; }
+  tfoot td { font-weight: 700; border-bottom: none; }
+  .pos { color: var(--good); } .neg { color: var(--bad); }
+  section.card.pair { padding: 12px 14px; }
+  .pair-head { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-bottom: 6px; }
+  .pair-head h2 { margin: 0 4px 0 0; }
+  .pair-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 14px; margin-bottom: 4px; }
+  .pair-main { flex: 1 1 320px; min-width: 0; }
+  .pair-main .formula { margin: 0 0 6px; padding: 6px 10px; }
+  .net-box { flex: 0 0 auto; min-width: 190px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px;
+             background: var(--bg); text-align: right; font-variant-numeric: tabular-nums; }
+  .net-k { color: var(--muted); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .net-v { font-size: 22px; font-weight: 800; line-height: 1.2; }
+  .net-s { font-size: 12.5px; }
+  .nowrap { white-space: nowrap; }
+  .paused-note { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: calc(100% - 32px);
+    padding: 6px 12px; border-radius: 8px; border: 1px solid var(--warn); background: var(--warn-bg); color: var(--warn);
+    font-size: 13px; font-weight: 600; box-shadow: 0 6px 18px rgba(0,0,0,.15); pointer-events: none; }
+  .paused-note.at-bottom { top: auto; bottom: 12px; }
+  .eq { border-bottom: 1px dotted var(--muted); cursor: help; }
+  .eq-tip { position: fixed; z-index: 70; pointer-events: none; max-width: calc(100vw - 16px); padding: 8px 10px;
+    border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    font: 12px/1.5 Consolas, "SFMono-Regular", ui-monospace, monospace; white-space: pre-wrap;
+    box-shadow: 0 6px 18px rgba(0,0,0,.22); }
+  .eq-tip[hidden] { display: none; }
+  .sub.warn { color: var(--warn); }
+  table.legs { font-size: 13px; }
+  table.legs th, table.legs td { padding: 5px 6px; }
+  table.legs td .sub { white-space: normal; }
+  table.legs .legmult input { width: 50px; }
+  table.legs td.acts { white-space: normal; min-width: 96px; text-align: left; }
+  table.legs td.acts button { display: block; margin: 0 0 3px; white-space: nowrap; }
+  .formula { background: var(--chip); border-radius: 8px; padding: 8px 10px; margin: 6px 0 10px; font-variant-numeric: tabular-nums; }
+  .formula b { font-size: 15px; }
+  .need { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; }
+  .banner { border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+  .banner.err { background: var(--bad-bg); color: var(--bad); }
+  .banner.sugg { background: var(--sugg); border: 1px solid var(--warn); }
+  .banner.sugg .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+  .big { font-size: 18px; font-weight: 700; }
+  #activity { list-style: none; padding: 0; margin: 0; max-height: 260px; overflow: auto; font-size: 12.5px; }
+  #activity li { padding: 4px 0; border-bottom: 1px solid var(--line); }
+  #activity time { color: var(--muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+  dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink);
+           padding: 20px; width: min(460px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  dialog dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 14px 0; }
+  dialog dt { color: var(--muted); } dialog dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  dialog input { font: inherit; width: 110px; padding: 4px 8px; text-align: right; border-radius: 6px;
+                 border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  .warnbox { padding: 10px 12px; border-radius: 8px; font-size: 13px; }
+  .warnbox.live { background: var(--bad-bg); color: var(--bad); font-weight: 600; }
+  .warnbox.dry { background: var(--chip); color: var(--muted); }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  /* Stock price box pinned to the right edge; stays in view while scrolling */
+  .ticker { position: fixed; right: 16px; top: 50%; transform: translateY(-50%); z-index: 40;
+            background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.14); min-width: 132px; text-align: right;
+            font-variant-numeric: tabular-nums; transition: border-color .4s; }
+  .ticker .t-row + .t-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .ticker .t-sym { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; color: var(--muted); }
+  .ticker .t-price { font-size: 24px; font-weight: 800; line-height: 1.15; transition: color .4s; }
+  .ticker .t-chg { font-size: 13px; font-weight: 600; }
+  .ticker .t-sub { font-size: 11px; color: var(--muted); }
+  .ticker .flash-up { color: var(--good); } .ticker .flash-down { color: var(--bad); }
+  .ticker { cursor: grab; user-select: none; touch-action: none; }
+  .ticker .t-needs { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 12px; text-align: left; }
+  .ticker .t-need { display: flex; justify-content: space-between; gap: 10px; white-space: nowrap; }
+  .ticker.dragging { cursor: grabbing; box-shadow: 0 14px 36px rgba(0,0,0,.25); border-color: var(--accent); }
+  @media (max-width: 760px) { .ticker { top: auto; bottom: 12px; transform: none; } }
+  .seg { display: inline-flex; align-items: center; gap: 0; }
+  .seg .sub { margin-right: 6px; }
+  .seg button { border-radius: 0; padding: 4px 12px; font-weight: 600; }
+  .seg button:first-of-type { border-radius: 8px 0 0 8px; }
+  .seg button + button { border-left: none; }
+  .seg button:last-of-type { border-radius: 0 8px 8px 0; }
+  .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .second-set { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .second-set input { width: 58px; font: inherit; padding: 3px 5px; text-align: right; border-radius: 8px;
+                      border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .second-set select { font: inherit; padding: 3px 5px; border-radius: 8px; border: 1px solid var(--line);
+                       background: var(--card); color: var(--ink); }
+  .legmult { white-space: nowrap; }
+  .a-msg { color: var(--warn); font-weight: 600; font-size: 13px; margin-top: 6px; min-height: 1.4em; }
+  #a-plan td { white-space: normal; }
+  #tv-table th, #tv-table td .sub { white-space: normal; }
+  #tv-table th.cur { background: var(--chip); }
+  #tv-table th.mid { background: var(--warn-bg); }
+  #a-plan td.wrap { min-width: 0; }
+  #a-plan td.legmult { white-space: nowrap; }
+  #a-plan .pill { white-space: normal; display: inline-block; }
+  .pairmult input { width: 62px; font: inherit; padding: 1px 4px; text-align: right; border-radius: 6px;
+                    border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .pairmult input.custom { border-color: var(--accent); font-weight: 700; }
+  .legmult input { width: 62px; font: inherit; padding: 2px 4px; text-align: right; border-radius: 6px;
+                   border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .legmult input.custom { border-color: var(--accent); font-weight: 700; }
+  button.tiny { padding: 0 6px; font-size: 12px; border-radius: 6px; }
+  .mult-in { margin-left: 8px; display: inline-flex; align-items: center; gap: 3px; font-weight: 600; }
+  .mult-in input { width: 74px; font: inherit; padding: 4px 6px; text-align: right; border-radius: 8px;
+                   border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .mult-in input.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+</style>
+<main>
+<p class="demo-note"><b>Demo copy.</b> Made-up positions and prices from the engine's practice mode, frozen at one moment. Buttons and boxes don't send anything.</p>
+  <header>
+    <h1>Pair Tracker</h1>
+    <span id="mode" class="badge dry">…</span>
+    <span id="engine" class="pill">starting…</span>
+    <span class="seg" title="Target = this many times (the pair's net value at the midpoint ÷ 2 legs ÷ that leg's contracts)">
+      <span class="sub">Target</span>
+      <button data-mult="2">2×</button><button data-mult="2.25">2.25×</button><button data-mult="2.5">2.5×</button>
+      <label class="mult-in" title="Type any multiplier from 0.5 to 10, then press Enter">
+        <input id="mult-input" type="text" inputmode="decimal" autocomplete="off" aria-label="Target multiplier">×
+      </label>
+    </span>
+    <span class="second-set" title="What the other leg sells at once one leg of a pair has sold">
+      <span class="sub">If one leg sells, the other sells at</span>
+      <input id="sl-pct" type="text" inputmode="decimal" autocomplete="off" aria-label="Second-leg percent">%
+      <select id="sl-basis" aria-label="Second-leg basis">
+        <option value="target">of its target</option>
+        <option value="cost">of what you paid</option>
+      </select>
+    </span>
+    <span id="status" class="sub"></span>
+    <span class="spacer"></span>
+    <button id="pause" disabled>Starting…</button>
+  </header>
+  <div id="demo" class="banner err" hidden><b>DEMO: made-up prices from a simulated broker, not from Robinhood.</b>
+    For your real positions and live Robinhood prices run <code>python rh_app.py --dry-run</code> (sends nothing)
+    or <code>python rh_app.py</code> (live orders).</div>
+  <div id="error" class="banner err" hidden></div>
+  <div id="suggestions"></div>
+
+  <section class="card">
+    <h2>What your options add up to in stock</h2>
+    <div class="sub">Each option moves like some number of shares (its delta × 100 × contracts). Calls act like owning shares,
+      puts like being short shares. Added up, this is the stock position your options behave like right now.</div>
+    <div id="exposure"></div>
+  </section>
+
+  <section class="card">
+    <h2>Lost so far</h2>
+    <div class="sub">What you paid minus what the options are worth: now, and if the stock were at each pair's midpoint
+      right now (each option priced to match its live market price). TV = time value (price − intrinsic value), from your fills.</div>
+    <div class="tiles" id="tv-tiles"></div>
+    <div class="scroll" data-key="tv"><table id="tv-table"></table></div>
+  </section>
+
+  <div id="pairs-paused" class="paused-note" hidden>Pair cards paused while you edit a multiplier: press Enter or click away to update them.</div>
+  <div id="pairs"></div>
+  <div id="unpaired"></div>
+
+  <section class="card">
+    <h2>Activity</h2>
+    <ul id="activity"></ul>
+  </section>
+</main>
+
+<aside id="ticker" class="ticker" hidden aria-live="polite" title="Drag to move · double-click to put it back"></aside>
+
+<dialog id="autoDlg">
+  <h2>Turn on automated sells?</h2>
+  <div id="a-mode" class="warnbox live"></div>
+  <p class="sub">These limit sell orders go in at the target prices now (change any option's multiplier first if
+    you like). After that the engine moves them every second as the targets change:</p>
+  <div class="scroll"><table id="a-plan"></table></div>
+  <div id="a-msg" class="a-msg" aria-live="polite"></div>
+  <div class="note" id="a-notes"></div>
+  <div class="actions">
+    <button id="a-cancel">Cancel</button>
+    <button id="a-ok" class="danger">Turn on automated sells</button>
+  </div>
+</dialog>
+
+<dialog id="confirm">
+  <h2 id="c-title">Sell now</h2>
+  <div id="c-mode" class="warnbox dry"></div>
+  <dl id="c-details"></dl>
+  <label id="c-price-row">Limit price per share: $<input id="c-price" type="text" inputmode="decimal" autocomplete="off"></label>
+  <div class="sub" id="c-proceeds"></div>
+  <div id="c-result" class="sub"></div>
+  <div class="actions">
+    <button id="c-cancel">Cancel</button>
+    <button id="c-ok" class="primary">Confirm</button>
+  </div>
+</dialog>
+
+<script>
+const TOKEN = "demo";
+const DEMO_SNAPSHOT = "{\"ready\": true, \"send_orders\": true, \"paused\": true, \"interval\": 1.0, \"multiple\": 2.25, \"cooldown\": 15.0, \"updated\": \"2026-11-16T15:33:37+00:00\", \"ticks\": 1628, \"error\": null, \"market\": {\"open\": true, \"opens_at\": \"2026-11-16T00:00:00+00:00\", \"closes_at\": \"2026-11-17T00:00:00+00:00\", \"is_trading_day\": true}, \"pairs\": [{\"symbol\": \"NVDA\", \"expiration\": \"2026-11-16\", \"t_trd\": 0.005152412008716592, \"trading_hours_left\": 8.439650870277777, \"t_next_close\": 0.0, \"next_close_at\": \"2026-11-17T00:00:00+00:00\", \"t_expiry_open\": 0.005152412008716592, \"expiry_open_at\": \"2026-11-16T00:00:00+00:00\", \"name\": \"155P / 172.5C\", \"mid\": 163.75, \"net_mid\": 1.4008627843535457, \"net_value\": 2801.725568707091, \"per_leg_value\": 1400.8627843535455, \"multiple\": 2.25, \"one_sold\": false, \"second_leg_pct\": 30.0, \"second_leg_auto\": true, \"second_label\": \"30% of its target\", \"blocked\": null, \"close_at\": \"2026-11-17T00:00:00+00:00\", \"days_left\": 0.3516521195949074, \"sellout_at\": \"2026-11-16T20:30:00+00:00\", \"underlying\": 160.98, \"shares_eq\": -232.60000000000002, \"gamma_eq\": 113.80000000000001, \"legs\": [{\"option_id\": \"demo-155p\", \"name\": \"155P\", \"type\": \"put\", \"strike\": 155.0, \"expiration\": \"2026-11-16\", \"symbol\": \"NVDA\", \"held\": true, \"side\": \"long\", \"qty\": 20.0, \"pending_sell\": 0.0, \"avg_cost\": 1.86, \"bid\": 1.06, \"ask\": 1.1, \"mark\": 1.08, \"iv\": 56.8, \"mid_price\": 0.5914037275869113, \"limit\": 1.58, \"marketable\": false, \"status\": \"automated sells off (no order)\", \"order\": null, \"value\": 2160.0, \"cost\": 3720.0, \"pnl\": -1560.0, \"pnl_pct\": -41.935483870967744, \"delta\": -0.2215, \"gamma\": 0.0359, \"shares_eq\": -443.0, \"gamma_eq\": 71.80000000000001, \"theta_day\": -844.4, \"tv\": {\"bought\": \"2026-11-12T16:00+00:00\", \"stock_at_buy\": 165.5, \"estimated\": false, \"days_held\": 14.701592206623932, \"tv_paid_share\": 1.86, \"tv_paid\": 3720.0, \"tv_now_share\": 1.08, \"tv_now\": 2160.0, \"tv_mid_share\": 2.7055778354887275e-05, \"tv_mid\": 0.05411155670977455, \"lost_now\": 1560.0, \"lost_mid\": 3719.94588844329, \"lost_now_per_day\": 106.11095574376823, \"lost_mid_per_day\": 253.03013688321704}, \"ghost\": false, \"ghost_avg_cost\": 1.86, \"sold_qty\": 0, \"sold_avg\": null, \"sold_time\": null, \"iv_trd\": 71.54282860680901, \"iv_source\": \"mark\", \"decay_trading_day\": -1951.9595018696805, \"order_marketable\": false, \"auto_is_second\": false, \"multiple\": 2.25, \"multiple_custom\": false, \"open_orders\": [], \"auto_limit\": 1.58, \"foreign_pending\": 0, \"free_qty\": 20, \"on_hold\": false, \"rebought\": false, \"contracts_used\": 20.0, \"target\": 1.5759706323977385, \"target_limit\": 1.58, \"manual_price\": null, \"second_limit\": null, \"second_rule\": false, \"suggest\": false, \"suggest_at\": null, \"change_needed_pct\": 46.296296296296305, \"value_at_limit\": 3160.0}, {\"option_id\": \"demo-1725c\", \"name\": \"172.5C\", \"type\": \"call\", \"strike\": 172.5, \"expiration\": \"2026-11-16\", \"symbol\": \"NVDA\", \"held\": true, \"side\": \"long\", \"qty\": 20.0, \"pending_sell\": 0.0, \"avg_cost\": 1.74, \"bid\": 0.41, \"ask\": 0.45, \"mark\": 0.43, \"iv\": 59.3, \"mid_price\": 0.8094590567666344, \"limit\": 1.58, \"marketable\": false, \"status\": \"automated sells off (no order)\", \"order\": null, \"value\": 860.0, \"cost\": 3480.0, \"pnl\": -2620.0, \"pnl_pct\": -75.28735632183908, \"delta\": 0.1052, \"gamma\": 0.021, \"shares_eq\": 210.39999999999998, \"gamma_eq\": 42.0, \"theta_day\": -486.59999999999997, \"tv\": {\"bought\": \"2026-11-12T16:00+00:00\", \"stock_at_buy\": 165.5, \"estimated\": false, \"days_held\": 14.701592210128204, \"tv_paid_share\": 1.74, \"tv_paid\": 3480.0, \"tv_now_share\": 0.43, \"tv_now\": 860.0, \"tv_mid_share\": 0.00013351569355993936, \"tv_mid\": 0.2670313871198787, \"lost_now\": 2620.0, \"lost_mid\": 3479.73296861288, \"lost_now_per_day\": 178.21198973231162, \"lost_mid_per_day\": 236.6908916311545}, \"ghost\": false, \"ghost_avg_cost\": 1.74, \"sold_qty\": 0, \"sold_avg\": null, \"sold_time\": null, \"iv_trd\": 75.04803709620258, \"iv_source\": \"mark\", \"decay_trading_day\": -843.9737534371862, \"order_marketable\": false, \"auto_is_second\": false, \"multiple\": 2.25, \"multiple_custom\": false, \"open_orders\": [], \"auto_limit\": 1.58, \"foreign_pending\": 0, \"free_qty\": 20, \"on_hold\": false, \"rebought\": false, \"contracts_used\": 20.0, \"target\": 1.5759706323977385, \"target_limit\": 1.58, \"manual_price\": null, \"second_limit\": null, \"second_rule\": false, \"suggest\": false, \"suggest_at\": null, \"change_needed_pct\": 267.4418604651163, \"value_at_limit\": 3160.0}]}, {\"symbol\": \"NVDA\", \"expiration\": \"2026-11-16\", \"t_trd\": 0.005152412008716592, \"trading_hours_left\": 8.439650870277777, \"t_next_close\": 0.0, \"next_close_at\": \"2026-11-17T00:00:00+00:00\", \"t_expiry_open\": 0.005152412008716592, \"expiry_open_at\": \"2026-11-16T00:00:00+00:00\", \"name\": \"150P / 177.5C\", \"mid\": 163.75, \"net_mid\": 0.5950707947552054, \"net_value\": 1382.0537406461142, \"per_leg_value\": 691.0268703230571, \"multiple\": 2.25, \"one_sold\": false, \"second_leg_pct\": 30.0, \"second_leg_auto\": true, \"second_label\": \"30% of its target\", \"blocked\": null, \"close_at\": \"2026-11-17T00:00:00+00:00\", \"days_left\": 0.3516521195949074, \"sellout_at\": \"2026-11-16T20:30:00+00:00\", \"underlying\": 160.98, \"shares_eq\": -171.10000000000002, \"gamma_eq\": 79.0, \"legs\": [{\"option_id\": \"demo-150p\", \"name\": \"150P\", \"type\": \"put\", \"strike\": 150.0, \"expiration\": \"2026-11-16\", \"symbol\": \"NVDA\", \"held\": true, \"side\": \"long\", \"qty\": 30.0, \"pending_sell\": 0.0, \"avg_cost\": 0.71, \"bid\": 0.37, \"ask\": 0.41, \"mark\": 0.39, \"iv\": 60.199999999999996, \"mid_price\": 0.19191215113570337, \"limit\": 0.52, \"marketable\": false, \"status\": \"automated sells off (no order)\", \"order\": null, \"value\": 1170.0, \"cost\": 2130.0, \"pnl\": -960.0, \"pnl_pct\": -45.07042253521127, \"delta\": -0.0921, \"gamma\": 0.0188, \"shares_eq\": -276.3, \"gamma_eq\": 56.400000000000006, \"theta_day\": -663.0, \"tv\": {\"bought\": \"2026-11-12T16:00+00:00\", \"stock_at_buy\": 165.5, \"estimated\": false, \"days_held\": 14.701592247564102, \"tv_paid_share\": 0.71, \"tv_paid\": 2130.0, \"tv_now_share\": 0.39, \"tv_now\": 1170.0, \"tv_mid_share\": 9.47639650412384e-10, \"tv_mid\": 2.842918951237152e-06, \"lost_now\": 960.0, \"lost_mid\": 2129.999997157081, \"lost_now_per_day\": 65.29904950663162, \"lost_mid_per_day\": 144.88226589946402}, \"ghost\": false, \"ghost_avg_cost\": 0.71, \"sold_qty\": 0, \"sold_avg\": null, \"sold_time\": null, \"iv_trd\": 75.88483307322431, \"iv_source\": \"mark\", \"decay_trading_day\": -1141.2890671130028, \"order_marketable\": false, \"auto_is_second\": false, \"multiple\": 2.25, \"multiple_custom\": false, \"open_orders\": [], \"auto_limit\": 0.52, \"foreign_pending\": 0, \"free_qty\": 30, \"on_hold\": false, \"rebought\": false, \"contracts_used\": 30.0, \"target\": 0.5182701527422928, \"target_limit\": 0.52, \"manual_price\": null, \"second_limit\": null, \"second_rule\": false, \"suggest\": false, \"suggest_at\": null, \"change_needed_pct\": 33.33333333333333, \"value_at_limit\": 1560.0}, {\"option_id\": \"demo-1775c\", \"name\": \"177.5C\", \"type\": \"call\", \"strike\": 177.5, \"expiration\": \"2026-11-16\", \"symbol\": \"NVDA\", \"held\": true, \"side\": \"long\", \"qty\": 20.0, \"pending_sell\": 0.0, \"avg_cost\": 1.03, \"bid\": 0.19, \"ask\": 0.23, \"mark\": 0.21, \"iv\": 65.10000000000001, \"mid_price\": 0.40315864361950204, \"limit\": 0.78, \"marketable\": false, \"status\": \"automated sells off (no order)\", \"order\": null, \"value\": 420.0, \"cost\": 2060.0, \"pnl\": -1640.0, \"pnl_pct\": -79.6116504854369, \"delta\": 0.0526, \"gamma\": 0.0113, \"shares_eq\": 105.19999999999999, \"gamma_eq\": 22.599999999999998, \"theta_day\": -281.8, \"tv\": {\"bought\": \"2026-11-12T16:00+00:00\", \"stock_at_buy\": 165.5, \"estimated\": false, \"days_held\": 14.701592255769231, \"tv_paid_share\": 1.03, \"tv_paid\": 2060.0, \"tv_now_share\": 0.21, \"tv_now\": 420.0, \"tv_mid_share\": 1.7474373349975572e-07, \"tv_mid\": 0.00034948746699951143, \"lost_now\": 1640.0, \"lost_mid\": 2059.999650512533, \"lost_now_per_day\": 111.55254284490358, \"lost_mid_per_day\": 140.1208532160279}, \"ghost\": false, \"ghost_avg_cost\": 1.03, \"sold_qty\": 0, \"sold_avg\": null, \"sold_time\": null, \"iv_trd\": 82.37555810949793, \"iv_source\": \"mark\", \"decay_trading_day\": -412.9906223907335, \"order_marketable\": false, \"auto_is_second\": false, \"multiple\": 2.25, \"multiple_custom\": false, \"open_orders\": [], \"auto_limit\": 0.78, \"foreign_pending\": 0, \"free_qty\": 20, \"on_hold\": false, \"rebought\": false, \"contracts_used\": 20.0, \"target\": 0.7774052291134391, \"target_limit\": 0.78, \"manual_price\": null, \"second_limit\": null, \"second_rule\": false, \"suggest\": false, \"suggest_at\": null, \"change_needed_pct\": 271.42857142857144, \"value_at_limit\": 1560.0}]}, {\"symbol\": \"NVDA\", \"expiration\": \"2026-11-20\", \"t_trd\": 0.0637604706167752, \"trading_hours_left\": 104.43965087027777, \"t_next_close\": 0.05860805860805861, \"next_close_at\": \"2026-11-17T00:00:00+00:00\", \"t_expiry_open\": 0.014652014652014652, \"expiry_open_at\": \"2026-11-20T00:00:00+00:00\", \"name\": \"140P / 190C\", \"mid\": 165.0, \"net_mid\": 2.8418283036419183, \"net_value\": 4549.0579500269805, \"per_leg_value\": 2274.5289750134903, \"multiple\": 2.25, \"one_sold\": false, \"second_leg_pct\": 30.0, \"second_leg_auto\": true, \"second_label\": \"30% of its target\", \"blocked\": null, \"close_at\": \"2026-11-21T00:00:00+00:00\", \"days_left\": 4.351652119594907, \"sellout_at\": \"2026-11-20T20:30:00+00:00\", \"underlying\": 160.98, \"shares_eq\": -94.83999999999997, \"gamma_eq\": 31.830000000000002, \"legs\": [{\"option_id\": \"demo-140p\", \"name\": \"140P\", \"type\": \"put\", \"strike\": 140.0, \"expiration\": \"2026-11-20\", \"symbol\": \"NVDA\", \"held\": true, \"side\": \"long\", \"qty\": 19.0, \"pending_sell\": 0.0, \"avg_cost\": 1.26, \"bid\": 1.59, \"ask\": 1.63, \"mark\": 1.61, \"iv\": 98.5, \"mid_price\": 1.1409966498565893, \"limit\": 2.7, \"marketable\": false, \"status\": \"automated sells off (no order)\", \"order\": null, \"value\": 3059.0, \"cost\": 2394.0, \"pnl\": 665.0, \"pnl_pct\": 27.77777777777778, \"delta\": -0.1362, \"gamma\": 0.0099, \"shares_eq\": -258.78, \"gamma_eq\": 18.810000000000002, \"theta_day\": -644.1000000000001, \"tv\": {\"bought\": \"2026-11-12T16:00+00:00\", \"stock_at_buy\": 165.5, \"estimated\": false, \"days_held\": 14.701592281025642, \"tv_paid_share\": 1.26, \"tv_paid\": 2394.0, \"tv_now_share\": 1.61, \"tv_now\": 3059.0, \"tv_mid_share\": 0.41600258038177884, \"tv_mid\": 790.4049027253798, \"lost_now\": -665.0, \"lost_mid\": 1603.5950972746202, \"lost_now_per_day\": -45.23319564903666, \"lost_mid_per_day\": 109.07628688249454}, \"ghost\": false, \"ghost_avg_cost\": 1.26, \"sold_qty\": 0, \"sold_avg\": null, \"sold_time\": null, \"iv_trd\": 54.506681182553585, \"iv_source\": \"mark\", \"decay_trading_day\": -277.71234988758454, \"order_marketable\": false, \"auto_is_second\": false, \"multiple\": 2.25, \"multiple_custom\": false, \"open_orders\": [], \"auto_limit\": 2.7, \"foreign_pending\": 0, \"free_qty\": 19, \"on_hold\": false, \"rebought\": false, \"contracts_used\": 19.0, \"target\": 2.6935211546212385, \"target_limit\": 2.7, \"manual_price\": null, \"second_limit\": null, \"second_rule\": false, \"suggest\": false, \"suggest_at\": null, \"change_needed_pct\": 67.70186335403727, \"value_at_limit\": 5130.0}, {\"option_id\": \"demo-190c\", \"name\": \"190C\", \"type\": \"call\", \"strike\": 190.0, \"expiration\": \"2026-11-20\", \"symbol\": \"NVDA\", \"held\": true, \"side\": \"long\", \"qty\": 14.0, \"pending_sell\": 0.0, \"avg_cost\": 1.65, \"bid\": 1.13, \"ask\": 1.17, \"mark\": 1.15, \"iv\": 94.89999999999999, \"mid_price\": 1.700831653785329, \"limit\": 3.7, \"marketable\": false, \"status\": \"automated sells off (no order)\", \"order\": null, \"value\": 1609.9999999999998, \"cost\": 2310.0, \"pnl\": -700.0000000000002, \"pnl_pct\": -30.303030303030315, \"delta\": 0.1171, \"gamma\": 0.0093, \"shares_eq\": 163.94, \"gamma_eq\": 13.02, \"theta_day\": -408.24000000000007, \"tv\": {\"bought\": \"2026-11-12T16:00+00:00\", \"stock_at_buy\": 165.5, \"estimated\": false, \"days_held\": 14.70159228457265, \"tv_paid_share\": 1.65, \"tv_paid\": 2310.0, \"tv_now_share\": 1.15, \"tv_now\": 1609.9999999999998, \"tv_mid_share\": 0.6966182014318711, \"tv_mid\": 975.2654820046196, \"lost_now\": 700.0000000000002, \"lost_mid\": 1334.7345179953804, \"lost_now_per_day\": 47.61389014539305, \"lost_mid_per_day\": 90.78843244728024}, \"ghost\": false, \"ghost_avg_cost\": 1.65, \"sold_qty\": 0, \"sold_avg\": null, \"sold_time\": null, \"iv_trd\": 51.63612391697702, \"iv_source\": \"mark\", \"decay_trading_day\": -182.45324887033902, \"order_marketable\": false, \"auto_is_second\": false, \"multiple\": 2.25, \"multiple_custom\": false, \"open_orders\": [], \"auto_limit\": 3.7, \"foreign_pending\": 0, \"free_qty\": 14, \"on_hold\": false, \"rebought\": false, \"contracts_used\": 14.0, \"target\": 3.6554929955573954, \"target_limit\": 3.7, \"manual_price\": null, \"second_limit\": null, \"second_rule\": false, \"suggest\": false, \"suggest_at\": null, \"change_needed_pct\": 221.73913043478265, \"value_at_limit\": 5180.0}]}], \"unpaired\": [], \"totals\": {\"tv_paid\": 16094.0, \"tv_now\": 9279.0, \"tv_mid\": 1765.9918800042149, \"lost_now\": 6815.0, \"lost_mid\": 14328.008119995786, \"tv_legs\": 6, \"suggestions\": 0}, \"exposure\": [{\"symbol\": \"NVDA\", \"price\": 160.98, \"shares\": -498.54, \"dollars\": -80254.96919999999, \"long_shares\": 479.53999999999996, \"short_shares\": -978.0799999999999, \"gamma\": 224.63000000000002, \"theta_day\": -4810.378543568527, \"scenarios\": [{\"move_pct\": -5, \"stock\": 152.93099999999998, \"pnl\": 11289.233088314999}, {\"move_pct\": -1, \"stock\": 159.37019999999998, \"pnl\": 1093.6090771325999}, {\"move_pct\": 1, \"stock\": 162.5898, \"pnl\": -511.49030686739997}, {\"move_pct\": 5, \"stock\": 169.029, \"pnl\": 3263.736168315}]}], \"second_leg_pct\": 30.0, \"second_leg_auto\": true, \"second_leg_basis\": \"target\", \"second_leg_cost_pct\": 50.0, \"second_label\": \"30% of its target\", \"quote_info\": {\"NVDA\": {\"price\": 160.98, \"prev_close\": 158.1, \"ext_price\": null, \"updated_at\": null}}, \"open_orders_time\": \"2026-11-16T15:33:35+00:00\", \"open_orders_error\": null, \"activity\": [{\"time\": \"10:06:17\", \"msg\": \"New pairs: NVDA 2026-11-16 155P / 172.5C, NVDA 2026-11-16 150P / 177.5C, NVDA 2026-11-20 140P / 190C\"}, {\"time\": \"10:06:17\", \"msg\": \"Engine started: DEMO (simulated broker; nothing leaves this computer); every 1s; target = 2.25 x (pair net value at the midpoint / 2 legs / contracts); automated sells OFF until you turn them on\"}], \"mode\": \"demo\"}";
+let snap = null, pending = null, failures = 0;
+
+const $ = id => document.getElementById(id);
+const money = (n, sign) => n == null ? "—" :
+  (sign && n > 0 ? "+" : n < 0 ? "−" : "") + "$" + Math.abs(n).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const num = (n, d = 2) => n == null ? "—" : Number(n).toFixed(d);
+const int = n => n == null ? "—" : Math.round(n).toLocaleString();
+const pct = (n, sign = true) => n == null ? "—" : (sign && n > 0 ? "+" : "") + n.toFixed(1) + "%";
+const cls = n => n > 0 ? "pos" : n < 0 ? "neg" : "";
+const lostCls = n => n > 0 ? "neg" : n < 0 ? "pos" : "";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const fmtTime = iso => iso ? new Date(iso).toLocaleString(undefined, {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}) : "—";
+const expShort = d => d ? new Date(d + "T12:00").toLocaleDateString(undefined, {month: "short", day: "numeric"}) : "";
+
+async function post(path, body) {
+  let r;
+  try {
+    return {ok: false, message: "This is a demo copy: nothing is sent."};
+  } catch (e) {
+    alert("Can't reach the program. Is rh_app.py still running?");
+    return {ok: false, message: "Can't reach the program."};
+  }
+  if (r.status === 403) {
+    alert("This page is from an earlier run of the program. Reload the page, then try again.");
+    return {ok: false, message: "Page is out of date: reload it."};
+  }
+  return r.json();
+}
+
+// keep horizontal scroll positions of tables across the once-a-second redraw
+function withScroll(fn) {
+  const saved = {};
+  document.querySelectorAll(".scroll[data-key]").forEach(el => saved[el.dataset.key] = el.scrollLeft);
+  fn();
+  document.querySelectorAll(".scroll[data-key]").forEach(el => { if (saved[el.dataset.key]) el.scrollLeft = saved[el.dataset.key]; });
+}
+
+const heldLegs = () => snap.pairs.flatMap(p => p.legs.filter(l => l.held).map(l => ({...l, pair: p})));
+
+function renderHeader() {
+  const m = snap.mode;
+  $("demo").hidden = m !== "demo";
+  $("mode").textContent = m === "live" ? "LIVE · real orders · Robinhood prices" : m === "demo" ? "DEMO · fake prices"
+                        : "DRY RUN · Robinhood prices · nothing sent";
+  $("mode").className = "badge " + (m === "live" ? "live" : m === "demo" ? "demo" : "dry");
+  let eng = snap.paused ? "automated sells OFF" : "automated sells ON", ec = snap.paused ? "warn" : "ok";
+  if (!snap.market.open) { eng += snap.market.is_trading_day ? " · market closed" : " · no trading today"; ec = "warn"; }
+  if (snap.error) { eng = "problem"; ec = "bad"; }
+  $("engine").textContent = eng; $("engine").className = "pill " + ec;
+  $("status").textContent = `data from ${new Date(snap.updated).toLocaleTimeString()}${snap.error ? " (stale: last update failed)" : ""} · every ${snap.interval}s · target ${snap.multiple}× (pair net value at the midpoint ÷ 2 legs ÷ contracts)`;
+  let preset = false;
+  document.querySelectorAll("[data-mult]").forEach(b => {
+    const on = Math.abs(parseFloat(b.dataset.mult) - snap.multiple) < 1e-9;
+    b.classList.toggle("on", on);
+    preset = preset || on;
+  });
+  const mi = $("mult-input");
+  if (document.activeElement !== mi) mi.value = +snap.multiple.toFixed(4);  // don't fight your typing
+  if (snap.second_leg_basis && document.activeElement !== $("sl-pct") && document.activeElement !== $("sl-basis")) {
+    $("sl-basis").value = snap.second_leg_basis;
+    $("sl-pct").value = snap.second_leg_basis === "cost" ? snap.second_leg_cost_pct : snap.second_leg_pct;
+  }
+  mi.classList.toggle("on", !preset);
+  const dry = m === "dry-run";
+  $("pause").disabled = dry;
+  $("pause").title = dry ? "This is a dry run. Restart with: python rh_app.py" : "";
+  $("pause").textContent = dry ? "Automated sells: dry run (restart without --dry-run)"
+                         : snap.paused ? "Turn on automated sells" : "Turn off automated sells";
+  $("pause").className = dry ? "" : snap.paused ? "primary" : "danger";
+  $("error").hidden = !snap.error;
+  $("error").textContent = snap.error ? "Problem: " + snap.error + " (retrying automatically)" : "";
+}
+
+function renderSuggestions() {
+  const s = heldLegs().filter(l => l.suggest && !l.rebought);
+  $("suggestions").innerHTML = s.map(l => `
+    <div class="banner sugg">
+      <div><b>Sell suggested: ${esc(l.symbol)} ${esc(l.name)} (${expShort(l.expiration)})</b> —
+        it's at ${money(l.mark)}, at least ${esc(snap.second_label)} (${money(l.suggest_at)}),
+        and the other leg of the pair already sold.</div>
+      <div class="row"><span class="sub">${l.qty} contracts · bid ${money(l.bid)} · worth ${money(l.value)} · P/L ${money(l.pnl, true)}</span>
+        <button class="primary small" data-sell="${esc(l.option_id)}">Review sale</button></div>
+    </div>`).join("");
+}
+
+function renderExposure() {
+  const ex = snap.exposure || [];
+  if (!ex.length) { $("exposure").innerHTML = "<div class='note'>No delta data yet.</div>"; return; }
+  $("exposure").innerHTML = ex.map(e => {
+    const side = e.shares >= 0 ? "LONG" : "SHORT";
+    const scen = e.scenarios.map(s => `<td class="${cls(s.pnl)}">${money(s.pnl, true)}<div class="sub">${esc(e.symbol)} ${money(s.stock)}</div></td>`).join("");
+    return `
+      <div class="tiles">
+        <div class="tile"><div class="k">${esc(e.symbol)} options act like</div>
+          <div class="v ${e.shares >= 0 ? "pos" : "neg"}">${side} ${int(Math.abs(e.shares))} shares</div>
+          <div class="s">≈ ${money(e.dollars == null ? null : Math.abs(e.dollars))} of stock at ${money(e.price)}</div></div>
+        <div class="tile"><div class="k">From calls (like buying)</div><div class="v pos">+${int(e.long_shares)} sh</div>
+          <div class="s">from puts (like shorting): ${int(e.short_shares)} sh</div></div>
+        <div class="tile"><div class="k">Each $1 rise in ${esc(e.symbol)}</div><div class="v">${e.gamma >= 0 ? "+" : ""}${int(e.gamma)} sh</div>
+          <div class="s">change in that share count (gamma)</div></div>
+        <div class="tile"><div class="k">Time decay</div><div class="v ${cls(e.theta_day)}">${money(e.theta_day, true)}/trading day</div>
+          <div class="s">counts market hours only, if nothing else moves</div></div>
+      </div>
+      <div class="scroll" data-key="ex-${esc(e.symbol)}"><table>
+        <thead><tr><th class="l">If ${esc(e.symbol)} moves (estimate)</th>${e.scenarios.map(s => `<th>${s.move_pct > 0 ? "+" : ""}${s.move_pct}%</th>`).join("")}</tr></thead>
+        <tbody><tr><td class="l">Options gain / lose</td>${scen}</tr></tbody>
+      </table></div>`;
+  }).join("");
+}
+
+function renderTimeValue() {
+  // Dollars lost on each pair: what you paid minus what its options are worth, now and if the stock
+  // were at the pair's midpoint (the same midpoint prices the targets use). It used to count time
+  // value only, which left out intrinsic value paid for or lost (e.g. a call bought $0.14 in the
+  // money is worth no intrinsic value at a midpoint below its strike), so it could show less lost at
+  // the midpoint than you'd really lose there. Time value is the second line of each cell.
+  const intrinsic = (l, S) => l.type === "call" ? Math.max(S - l.strike, 0) : Math.max(l.strike - S, 0);
+  // The option's value with the stock at the midpoint, from the same model at the volatility that
+  // reproduces its live mark this second (trading clock). "Now" uses the marks, so the two only differ
+  // by where the stock is. (The engine reads its volatility from the marks too, as a median of the
+  // last ~30 readings, so the pair cards' midpoint values agree to within a few cents. Robinhood's
+  // own IV field prices these up to ~0.5% away from their marks, enough to show less lost at the
+  // midpoint than now with the stock close to it.)
+  const midPrice = (l, p) => {
+    // a leg the engine prices from Robinhood's IV (mark unusable, stale stock price...) or from a rough
+    // reading (a mark with almost no time value) uses the engine's value
+    if (l.iv_source !== "mark" || p.t_trd == null) return l.mid_price;
+    const iv = l.mark != null ? impliedVol(l.type, p.underlying, l.strike, p.t_trd, l.mark) : null;
+    return iv != null && iv >= 0.01 && iv <= 10 ? bsPrice(l.type, p.mid, l.strike, p.t_trd, iv) : l.mid_price;
+  };
+  const groups = snap.pairs.map(p => ({p, legs: p.legs.filter(l => l.held && l.side === "long" && l.cost != null && l.value != null)}))
+    .filter(g => g.legs.length);
+  if (!groups.length) { $("tv-tiles").innerHTML = "<div class='note'>Waiting for prices…</div>"; $("tv-table").innerHTML = ""; return; }
+  const tot = {paid: 0, now: 0, mid: 0, dayNow: 0, dayMid: 0, tvPaid: 0, legs: 0, tvLegs: 0, midOk: true, dayOk: true};
+  const rows = groups.map(({p, legs}) => {
+    const r = {paid: 0, now: 0, mid: 0, dayNow: 0, dayMid: 0, tvPaid: 0, tvNow: 0, tvMid: 0, midOk: true, dayOk: true, tvOk: true, tvNowOk: true, days: 0};
+    const detail = [];
+    for (const l of legs) {
+      const units = 100 * l.qty, pm = midPrice(l, p), worthMid = pm != null ? pm * units : null, v = l.tv;
+      r.paid += l.cost; r.now += l.value;
+      if (p.underlying > 0) r.tvNow += l.value - intrinsic(l, p.underlying) * units; else r.tvNowOk = false;
+      if (worthMid == null) r.midOk = false;
+      else { r.mid += worthMid; r.tvMid += worthMid - intrinsic(l, p.mid) * units; }
+      if (v && v.tv_paid != null) { r.tvPaid += v.tv_paid; tot.tvLegs++; } else r.tvOk = false;
+      const days = v && v.days_held;
+      if (days) {
+        r.days = Math.max(r.days, days);
+        r.dayNow += (l.cost - l.value) / days;
+        if (worthMid != null) r.dayMid += (l.cost - worthMid) / days;
+      } else r.dayOk = false;
+      detail.push(`${l.name} ×${l.qty}: paid ${money(l.cost)}${v && v.tv_paid != null ? ` (time value ${money(v.tv_paid)})` : ""}, worth ${money(l.value)} now, ${
+        worthMid == null ? "—" : money(worthMid)} at the midpoint (at its live market price)${v && v.bought ? `; bought ${fmtTime(v.bought)} with ${p.symbol} at ${money(v.stock_at_buy)}` : ""}`);
+    }
+    tot.paid += r.paid; tot.now += r.now; tot.tvPaid += r.tvPaid; tot.legs += legs.length;
+    if (r.midOk) tot.mid += r.mid; else tot.midOk = false;
+    if (r.dayOk) { tot.dayNow += r.dayNow; tot.dayMid += r.dayMid; } else tot.dayOk = false;
+    const lostNow = r.paid - r.now, lostMid = r.midOk ? r.paid - r.mid : null;
+    return `<tr>
+      <td class="l" title="${esc(detail.join("\n"))}"><b>${expShort(p.expiration)} · ${esc(p.name)}</b>
+        <div class="sub">${legs.map(l => "×" + l.qty).join(" / ")}${r.days ? ` · held ${num(r.days, 1)} trading days` : ""}</div></td>
+      <td>${money(r.paid)}<div class="sub">${r.tvOk ? "TV " + usd0(r.tvPaid) : "&nbsp;"}</div></td>
+      <td class="${lostCls(lostNow)}"><b>${money(lostNow)}</b><div class="sub">worth ${usd0(r.now)} · TV ${r.tvNowOk ? usd0(r.tvNow) : "—"}</div></td>
+      <td class="${lostCls(r.dayNow)}">${r.dayOk ? usd0(r.dayNow) : "—"}</td>
+      <td class="${lostCls(lostMid)}"><b>${money(lostMid)}</b><div class="sub">${r.midOk
+        ? `worth ${usd0(r.mid)} at ${money(p.mid)} · TV ${usd0(r.tvMid)}` : "—"}</div></td>
+      <td class="${lostCls(r.dayMid)}">${r.dayOk && r.midOk ? usd0(r.dayMid) : "—"}</td></tr>`;
+  }).join("");
+  const lostNow = tot.paid - tot.now, lostMid = tot.midOk ? tot.paid - tot.mid : null;
+  const under = snap.pairs.find(p => p.underlying)?.underlying, sym = snap.pairs.find(p => p.symbol)?.symbol || "the stock";
+  $("tv-tiles").innerHTML = `
+    <div class="tile"><div class="k">Paid</div><div class="v">${money(tot.paid)}</div>
+      <div class="s">${tot.tvLegs === tot.legs ? `time value ${usd0(tot.tvPaid)} of it · ` : ""}${tot.legs} options</div></div>
+    <div class="tile"><div class="k">Lost now</div><div class="v ${lostCls(lostNow)}">${money(lostNow)}</div>
+      <div class="s">${esc(sym)} ${money(under)}${tot.dayOk ? ` · ${usd0(tot.dayNow)} per trading day` : ""}</div></div>
+    <div class="tile"><div class="k">Lost if ${esc(sym)} were at the midpoints</div><div class="v ${lostCls(lostMid)}">${money(lostMid)}</div>
+      <div class="s">${tot.dayOk && tot.midOk ? `${usd0(tot.dayMid)} per trading day · ` : ""}usually the low point for pairs like these</div></div>`;
+  $("tv-table").innerHTML = `
+    <thead><tr><th class="l">Pair <span class="sub">(hover for each option)</span></th><th>Paid</th>
+          <th class="cur">Lost now <span class="sub">(${esc(sym)} ${money(under)})</span></th><th class="cur">per trading day</th>
+          <th class="mid">Lost if at the midpoint</th><th class="mid">per trading day</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td class="l">Total</td><td>${money(tot.paid)}</td>
+      <td class="${lostCls(lostNow)}">${money(lostNow)}<div class="sub">worth ${usd0(tot.now)}</div></td><td>${tot.dayOk ? usd0(tot.dayNow) : ""}</td>
+      <td class="${lostCls(lostMid)}">${money(lostMid)}<div class="sub">${tot.midOk ? "worth " + usd0(tot.mid) : ""}</div></td>
+      <td>${tot.dayOk && tot.midOk ? usd0(tot.dayMid) : ""}</td></tr></tfoot>`;
+}
+
+// ---- Pair cards ---------------------------------------------------------------------------
+// One row per leg: what you hold, the market, the target math, the sell price, where the stock has
+// to be for it, and P/L. The engine's full status for a leg is the hover text on its name; the row
+// only spells out what needs attention (an open sell order, a hold, a rejected order).
+const ATTENTION = /^(on hold|holding|contract isn't|retrying|order rejected|checking|left alone)/;
+const fmtMult = m => m == null ? "?" : +Number(m).toFixed(4);
+const usd0 = (n, sign) => { if (n == null) return "—"; const r = Math.round(n); return (sign && r > 0 ? "+" : r < 0 ? "−" : "") + "$" + Math.abs(r).toLocaleString(); };
+
+function legActions(l) {
+  const orders = l.open_orders || [];
+  const yours = orders.filter(o => o.by === "you");
+  const combo = orders.some(o => o.combo);
+  // "Replace at target": for a leg whose sell order isn't already the engine's target order.
+  // Not offered for a two-leg order (it would cancel the other leg's sale too).
+  const replaceLabel = l.auto_is_second ? `Replace at ${esc(snap.second_label)}: ${money(l.auto_limit)}`
+                                        : `Replace at target ${money(l.auto_limit)}`;
+  // Never for a re-bought leg: the pair's prices are for the old contracts.
+  const replaceBtn = combo ? `<div class="sub">two-leg order: change it in the Robinhood app</div>`
+    : (l.side === "long" && !l.rebought && l.auto_limit != null && (yours.length || l.manual_price != null))
+      ? `<button class="primary small" data-replace="${esc(l.option_id)}">${replaceLabel}</button> ` : "";
+  if (l.on_hold) return `<button class="small" data-manage="${esc(l.option_id)}">Manage again</button>`;
+  // contracts bought after part of the pair sold: the pair's prices are for the old ones, so no
+  // "Sell at" button (it would sell the new contracts at that price); sell it yourself if you want
+  if (l.rebought && l.manual_price == null)
+    return `<button class="small" data-sell="${esc(l.option_id)}">Sell now…</button>`;
+  if (l.suggest) return `<button class="primary small" data-sell="${esc(l.option_id)}">Review sale</button>`;
+  if (l.manual_price != null) return replaceBtn
+    + `<button class="small" data-back="${esc(l.option_id)}">${snap.paused || l.rebought ? "Cancel my order" : "Back to automatic"}</button>`;
+  if (l.side !== "long") return "";
+  if (l.free_qty === 0) return replaceBtn + `<div class="sub">all ${l.qty} are in your own Robinhood sell orders</div>`;
+  return replaceBtn
+    + (l.limit != null && !yours.length ? `<button class="primary small" data-limit="${esc(l.option_id)}">Sell at ${money(l.limit)}</button> ` : "")
+    + `<button class="small" data-sell="${esc(l.option_id)}">Sell now…</button>`;
+}
+
+function legNotes(l) {
+  // A sell order open on this leg (live from Robinhood), contracts sitting in orders the list
+  // doesn't show, or a problem the engine reports. Nothing when all is normal.
+  const orders = l.open_orders || [];
+  const out = orders.map(o => {
+    const left = Math.max(o.quantity - o.filled, 0);
+    const filled = o.filled ? ` (${o.filled} of ${o.quantity} filled)` : "";
+    if (o.by === "engine" && !o.combo && o.price != null && l.limit != null && Math.abs(o.price - l.limit) < 0.005)
+      return `<div class="sub pos">✓ order open at this price${filled}</div>`;
+    const price = o.price == null ? esc(o.type || "market/stop") : money(o.price);
+    return `<div class="sub">${o.by === "engine" ? "engine" : "your"} ${o.combo ? "two-leg " : ""}order: ${left} @ ${price}${o.combo ? " net" : ""}${filled}</div>`;
+  });
+  // foreign_pending already leaves out the engine's own order, which can be newer than the list (or
+  // simulated, in a dry run): compare your contracts in sell orders with your orders on the list
+  const listedYours = orders.filter(o => o.by !== "engine").reduce((s, o) => s + Math.max(o.quantity - o.filled, 0), 0);
+  const hidden = (l.foreign_pending || 0) - listedYours;
+  if (hidden > 0.5)
+    out.push(`<div class="sub neg">${Math.round(hidden)} more in sell orders not listed here (check the Robinhood app)</div>`);
+  if (ATTENTION.test(l.status || "")) out.push(`<div class="sub warn">${esc(l.status)}</div>`);
+  return out.join("");
+}
+
+function moveShort(m) {
+  // plain text (for hover text)
+  if (!m) return "—";
+  if (m.reached) return m.later ? "already there at today's price" : "reached now";
+  if (m.unreachable) return "out of reach";
+  return `${money(m.stock)} (${m.pct >= 0 ? "+" : ""}${m.pct.toFixed(1)}%)`;
+}
+
+function stockNeeded(l, p) {
+  // Two bounds on screen: if the stock moved there right now, and if the option is held to
+  // expiration (only intrinsic value left: strike ± sell price). Times in between: hover text.
+  if (l.side !== "long" || l.limit == null) return "—";
+  const now = moveNeeded(l, p), exp = moveNeeded(l, p, "expiry");
+  const head = now && now.reached ? `<span class="pos">reached now</span>`
+    : `<span class="nowrap"><span class="sub">now</span> ${moveText(now, p.symbol, true)}</span>`;
+  return head + (exp && !exp.reached ? `<div class="sub nowrap">expiry ${moveShort(exp)}</div>` : "");
+}
+
+function laterText(l, p) {
+  // The same sell price if the stock only got there later: options lose time value as market hours
+  // pass, so out-of-the-money legs need a bigger move. At expiration only intrinsic value is left.
+  if (l.side !== "long" || l.limit == null) return "";
+  const at = iso => iso ? ` (${fmtTime(iso)})` : "";
+  return [`${p.symbol} price for ${money(l.limit)}:`,
+          `if it got there right now: ${moveShort(moveNeeded(l, p))}`,
+          `by the next close${at(p.next_close_at)}: ${moveShort(moveNeeded(l, p, "next"))}`,
+          `by the expiration-day open${at(p.expiry_open_at)}: ${moveShort(moveNeeded(l, p, "expopen"))}`,
+          `at expiration: ${moveShort(moveNeeded(l, p, "expiry"))}`,
+          "Counts market hours only, at the option's live implied volatility; aims for the bid to reach the price."].join("\n");
+}
+
+function legRow(l, p) {
+  // 6 columns: leg (+ P/L) | market | target x | sell price | stock needed | notes + buttons
+  if (!l.held) {
+    if (!l.ghost) return `<tr><td class="l"><b>${esc(l.name)}</b></td><td colspan="5" class="l sub">not in your positions right now (checking for a few seconds before treating it as sold)</td></tr>`;
+    // Ghost: the leg sold, but it stays listed and tracked; its live midpoint price still feeds the target.
+    const sold = l.sold_avg == null ? "sold outside the engine"
+      : `${l.sold_qty < l.contracts_used ? `engine sold ${l.sold_qty} of ${l.contracts_used}` : "sold"} at <b>${money(l.sold_avg)}</b>`;
+    return `<tr class="ghost">
+      <td class="l" title="${esc(l.status)}"><b>${esc(l.name)}</b> <span class="pill">ghost · sold</span>
+        <div class="sub">${l.contracts_used} @ ${money(l.ghost_avg_cost)}</div>
+        <div class="sub">${l.realized_pnl != null ? `realized <span class="${cls(l.realized_pnl)}">${usd0(l.realized_pnl, true)}</span>${
+          l.sold_qty < l.contracts_used ? ` on ${l.sold_qty}` : ""}` : "P/L not tracked"}</div></td>
+      <td>${num(l.bid)} / <b>${num(l.mark)}</b> / ${num(l.ask)}</td>
+      <td>—</td><td>${sold}</td><td>—</td>
+      <td class="acts sub">still tracked: its price counts toward the pair's value</td></tr>`;
+  }
+  const why = l.manual_price != null ? "your price" : l.second_rule ? esc(snap.second_label) : "";
+  const alone = l.rebought && l.manual_price == null;  // no sell price: the engine leaves it alone
+  const flag = alone ? "" : l.order_marketable ? "<div class='sub pos'>bid is at the order: should fill</div>"
+    : (l.marketable && !(l.order && l.order.id)) ? "<div class='sub pos'>bid is already at this price</div>" : "";
+  return `<tr class="${l.suggest ? "sugg" : ""}">
+    <td class="l" title="${esc(l.status)}"><b>${esc(l.name)}</b>${l.side === "short" ? " <span class='sub'>short</span>" : ""}
+      <div class="sub">${l.qty} @ ${money(l.avg_cost)}</div>
+      <div class="sub">P/L <span class="${cls(l.pnl)}">${usd0(l.pnl, true)} (${pct(l.pnl_pct)})</span></div></td>
+    <td title="${l.iv_trd == null ? "" : `Midpoint priced at ${num(l.iv_trd, 1)}% volatility (trading-hours clock), ${l.iv_source === "robinhood"
+      ? "from Robinhood's IV: its mark can't be matched right now"
+      : l.iv_source === "thin" ? "read from its live mark, which has under 5¢ of time value, so it's rough (Robinhood has no usable IV for it right now)"
+      : "read from its live mark (median of the last ~30 seconds)"}.`}
+IV shown: Robinhood's figure.">${num(l.bid)} / <b>${num(l.mark)}</b> / ${num(l.ask)}<div class="sub">IV ${l.iv == null ? "—" : num(l.iv, 1) + "%"}${
+      l.iv_source === "robinhood" ? " <span class='sub warn'>· RH</span>"
+      : l.iv_source === "thin" ? " <span class='sub warn'>· rough</span>" : ""}</div></td>
+    <td class="legmult"><input data-legmult="${esc(l.option_id)}" type="text" inputmode="decimal" autocomplete="off"
+        class="${l.multiple_custom ? "custom" : ""}" value="${l.multiple_custom ? fmtMult(l.multiple) : ""}"
+        data-shown="${l.multiple_custom ? fmtMult(l.multiple) : ""}"
+        placeholder="${fmtMult(snap.multiple)}" title="This option's own target multiplier. Empty = follow the page's ${snap.multiple}×">${
+        l.multiple_custom ? ` <button class="tiny" data-legreset="${esc(l.option_id)}" title="Follow the page's multiplier again">↺</button>` : ""}</td>
+    <td>${alone ? `— <div class="sub">left alone</div>` : `<b>${money(l.limit)}</b> <span class="${cls(l.change_needed_pct)}">${pct(l.change_needed_pct)}</span>
+      <div class="sub">${why ? why + " · " : ""}${usd0(l.value_at_limit)} total</div>${flag}`}</td>
+    <td title="${alone ? "" : esc(laterText(l, p))}">${alone ? "—" : stockNeeded(l, p)}</td>
+    <td class="acts">${legNotes(l)}${legActions(l)}</td></tr>`;
+}
+
+function pairNet(p) {
+  // What the pair is worth right now: the legs you hold at their mark, plus the cash from contracts
+  // the engine already sold, against what you paid for all of them.
+  let value = 0, proceeds = 0, cost = 0, unknown = 0;
+  for (const l of p.legs) {
+    const sold = l.sold_avg != null ? (l.sold_qty || 0) : 0;
+    // fills of an engine order that's still open (sold_qty only counts an order once it closes),
+    // at its limit (a sell limit fills there or better, so this slightly understates the cash)
+    // (the positions and the order's fill count are read at slightly different times, so its fills count
+    // only as far as the positions already show them: never twice, never as a sale outside the engine)
+    const gone = Math.max((l.contracts_used || 0) - (l.held ? l.qty : 0) - sold, 0);   // left the position
+    const o = l.order, part = o && o.price != null ? Math.min(o.filled || 0, gone) : 0;
+    const avg = l.held ? l.avg_cost : l.ghost_avg_cost;
+    if (l.held) {
+      if (l.value == null || l.cost == null) return null;
+      const sign = l.side === "short" ? -1 : 1;   // a short leg: owed now, and was a credit
+      value += sign * l.value; cost += sign * l.cost;
+    } else if (!l.ghost) return null;
+    unknown += gone - part;   // sold outside the engine: price unknown
+    if (sold && avg != null) { proceeds += l.sold_avg * 100 * sold; cost += avg * 100 * sold; }
+    if (part && avg != null) { proceeds += o.price * 100 * part; cost += avg * 100 * part; }
+  }
+  const net = value + proceeds, pnl = net - cost;
+  return {value, proceeds, net, cost, pnl, pnlPct: cost ? pnl / Math.abs(cost) * 100 : null, unknown};
+}
+
+function renderPairs() {
+  $("pairs").innerHTML = snap.pairs.map((p, i) => {
+    const held = p.legs.filter(l => l.held);
+    // each leg's midpoint value: hover it for the equation behind it (eqText); its empty title keeps the
+    // line's own hover text from showing on top
+    const mids = p.legs.map(l => `<span class="eq" title="" data-eq="${i}|${esc(l.option_id)}">${esc(l.name)} <b>${money(l.mid_price)}</b></span> × ${l.contracts_used}`).join(" + ");
+    const perLeg = held.filter(l => l.target != null).map(l =>
+      `<span class="nowrap">${esc(l.name)}: ${money(p.per_leg_value)} ÷ ${l.contracts_used} contracts ÷ 100 × ${fmtMult(l.multiple ?? p.multiple)}
+        = ${money(l.target)} → <b>${money(l.target_limit)}</b></span>`).join(" · ");
+    const formula = p.net_value == null
+      ? `<span class="pill warn">${esc(p.blocked || "waiting for data")}</span> orders stay as they are until the numbers are steady`
+      : `<div title="Each option's model price with the stock at the midpoint of the strikes (at the volatility read from its live market price), × its contracts × 100 shares">At the ${money(p.mid)} midpoint:
+           ${mids} × 100 = <b>${money(p.net_value)}</b> ÷ 2 legs = <b>${money(p.per_leg_value)}</b> per leg</div>
+         <div class="sub" title="Per leg ÷ that leg's contracts ÷ 100 shares × its target multiplier, rounded up to a valid tick ($0.01 under $3, $0.05 from $3) so it never sells below the target">${perLeg}</div>`;
+    const second = held.filter(l => l.second_limit != null).map(l => `${esc(l.name)} at <b>${money(l.second_limit)}</b>`).join(", ");
+    const alone = held.filter(l => l.rebought && l.manual_price == null).map(l => esc(l.name)).join(", ");
+    const open = !p.one_sold ? "" : alone && !second
+      ? `<div class="formula"><span class="pill ok">pair still open</span>
+      One leg sold; ${alone} is left alone (you bought more after part of this pair sold)</div>`
+      : `<div class="formula"><span class="pill ok">pair still open</span>
+      One leg sold; the other sells at ${esc(p.second_label)}${second ? ": " + second : ""}${
+      !p.second_leg_auto ? " <span class='sub'>(suggested only: you confirm the sale)</span>"
+      : snap.paused ? " <span class='sub'>(placed once automated sells are on)</span>" : ""}</div>`;
+    // Top right: what the pair is worth right now.
+    const n = pairNet(p);
+    const netBox = `<div class="net-box" title="The legs you hold at their market price (mark)${n && n.proceeds ? ", plus the cash from what the engine sold" : ""}, against what you paid">
+      <div class="net-k">Current net</div>
+      ${n ? `<div class="net-v">${money(n.net)}</div>
+        <div class="net-s">paid ${money(n.cost)} · <b class="${cls(n.pnl)}">${money(n.pnl, true)} (${pct(n.pnlPct)})</b></div>
+        ${n.proceeds ? `<div class="net-s sub">held ${money(n.value)} + sold ${money(n.proceeds)}</div>` : ""}
+        ${n.unknown ? `<div class="net-s sub">leaves out ${n.unknown} contract(s) sold outside the engine</div>` : ""}`
+      : `<div class="net-v">—</div><div class="net-s sub">waiting for prices</div>`}
+    </div>`;
+    const ordersErr = i === 0 && snap.open_orders_error
+      ? `<div class="note neg">Couldn't refresh the open sell orders from Robinhood (${esc(snap.open_orders_error)}).</div>` : "";
+    return `<section class="card pair">
+      <div class="pair-top">
+        <div class="pair-main">
+          <div class="pair-head">
+            <h2 title="trading ends ${fmtTime(p.close_at)}">${esc(p.symbol)} · ${expShort(p.expiration)} · ${esc(p.name)}</h2>
+            <span class="pill">midpoint ${money(p.mid)}</span>
+            ${pairMultControl(p)}
+          </div>
+          <div class="formula">${formula}</div>${open}
+        </div>
+        ${netBox}
+      </div>
+      <div class="scroll" data-key="pair-${i}"><table class="legs">
+        <thead><tr><th class="l">Leg <span class="sub">qty @ cost</span></th><th>Bid / Mark / Ask</th>
+          <th title="Type a multiplier for just this option; empty follows the page's">Target ×</th>
+          <th title="Sell price per share, how far above today's mark it is, and what all its contracts bring in at that price">Sell price</th>
+          <th title="Where ${esc(p.symbol)} has to be for the option to reach its sell price: if it moved there now, and if held to expiration. Hover a cell for the times in between.">${esc(p.symbol)} needed</th>
+          <th></th></tr></thead>
+        <tbody>${p.legs.map(l => legRow(l, p)).join("")}</tbody>
+      </table></div>
+      ${p.sellout_at ? `<div class="note">Robinhood may close risky positions itself after ${fmtTime(p.sellout_at)} on expiration day.</div>` : ""}${ordersErr}
+    </section>`;
+  }).join("");
+
+  $("unpaired").innerHTML = (snap.unpaired || []).length ? `<section class="card"><h2>Not in a pair (no orders)</h2>
+    <div class="scroll" data-key="unpaired"><table><thead><tr><th class="l">Option</th><th>Qty</th><th>Mark</th><th>P/L</th></tr></thead>
+    <tbody>${snap.unpaired.map(l => `<tr><td class="l">${esc(l.symbol)} ${esc(l.name)} ${expShort(l.expiration)}</td><td>${l.qty}</td><td>${num(l.mark)}</td>
+      <td class="${cls(l.pnl)}">${money(l.pnl, true)}</td></tr>`).join("")}</tbody></table></div>
+    <div class="note">A lone option gets paired automatically once a put and a call of the same expiration are both held.</div></section>` : "";
+}
+
+// ---- Stock move needed for a leg to reach its sell price -------------------------------
+// Same Black-Scholes model as the engine (4% rate), on its trading clock (market hours only), with
+// the volatility that reproduces the option's live mark. A sell order fills at the bid, so it solves
+// for the mark reaching the sell price plus half the bid/ask spread.
+const RATE = 0.04;
+function ncdf(x) {
+  const z = Math.abs(x) / Math.SQRT2, t = 1 / (1 + 0.3275911 * z);
+  const erf = 1 - (((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t) * Math.exp(-z * z);
+  return x >= 0 ? (1 + erf) / 2 : (1 - erf) / 2;
+}
+function bsPrice(kind, S, K, t, iv) {
+  const intrinsic = kind === "call" ? Math.max(S - K, 0) : Math.max(K - S, 0);
+  if (!(t > 0) || !(iv > 0)) return intrinsic;
+  const sd = iv * Math.sqrt(t), d1 = (Math.log(S / K) + (RATE + iv * iv / 2) * t) / sd, d2 = d1 - sd;
+  return kind === "call" ? S * ncdf(d1) - K * Math.exp(-RATE * t) * ncdf(d2)
+                         : K * Math.exp(-RATE * t) * ncdf(-d2) - S * ncdf(-d1);
+}
+function impliedVol(kind, S, K, t, price) {
+  // The volatility at which the model gives today's market price (null if none fits). Same search
+  // as the engine's rho.implied_vol.
+  if (!(t > 0) || !(price > 0) || !(S > 0) || !(K > 0)) return null;
+  const intrinsic = kind === "call" ? Math.max(S - K, 0) : Math.max(K - S, 0);
+  if (price <= intrinsic + 1e-6) return null;
+  let lo = 0.005, hi = 20;
+  if (bsPrice(kind, S, K, t, hi) < price || bsPrice(kind, S, K, t, lo) > price) return null;
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2;
+    if (bsPrice(kind, S, K, t, mid) > price) hi = mid; else lo = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function moveNeeded(l, p, when = "now") {
+  // when: "now" | "next" (next session close) | "expopen" (open of expiration day) | "expiry" (intrinsic)
+  // Returns {stock, move, pct}, {reached} (later: true = still worth it then at today's price),
+  // {unreachable}, or null when there's no data.
+  const S0 = p.underlying, limit = l.limit;
+  if (!S0 || !limit || !l.strike || !l.type) return null;
+  const trading = p.t_trd != null && l.iv_trd != null;
+  const iv = (trading ? l.iv_trd : l.iv || 0) / 100;
+  const tNow = trading ? p.t_trd : (p.days_left || 0) / 365;
+  const t = when === "now" ? tNow : when === "next" ? p.t_next_close : when === "expopen" ? p.t_expiry_open : 0;
+  if (t == null) return null;
+  if (!(t > 0)) {  // at expiration only intrinsic value is left
+    const S = l.type === "call" ? l.strike + limit : l.strike - limit;
+    return S > 0 ? {stock: S, move: S - S0, pct: (S - S0) / S0 * 100} : {unreachable: true};
+  }
+  if (when === "now" && l.bid != null && l.bid >= limit) return {reached: true};
+  if (!iv) return null;
+  // The volatility that reproduces the option's live market price exactly (on the same clock), for
+  // "now" and the later points alike, so a later point never needs less of a move than an earlier one.
+  const vol = l.mark != null ? (impliedVol(l.type, S0, l.strike, tNow, l.mark) ?? iv) : iv;
+  const half = l.bid != null && l.ask != null && l.ask > l.bid ? (l.ask - l.bid) / 2 : 0;
+  const f = S => bsPrice(l.type, S, l.strike, t, vol) - (limit + half);
+  if (f(S0) >= 0) return {reached: true, later: when !== "now"};   // worth it at today's stock price
+  // Calls gain as the stock rises, puts as it falls: bracket the answer on that side of today's price.
+  let lo, hi;
+  if (l.type === "call") {
+    lo = S0; hi = S0 * 2;
+    for (let i = 0; i < 40 && f(hi) < 0; i++) { lo = hi; hi *= 2; }
+    if (f(hi) < 0) return {unreachable: true};
+  } else {
+    lo = S0 * 1e-6; hi = S0;
+    if (f(lo) < 0) return {unreachable: true};   // more than a put can ever be worth (its strike)
+  }
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2, worth = f(mid) >= 0;
+    if (l.type === "call") { if (worth) hi = mid; else lo = mid; }
+    else { if (worth) lo = mid; else hi = mid; }
+  }
+  const S = (lo + hi) / 2;
+  return {stock: S, move: S - S0, pct: (S - S0) / S0 * 100};
+}
+function moveText(m, sym, short) {
+  if (!m) return "—";
+  if (m.reached) return `<span class="pos">${m.later ? "already there" : "reached now"}</span>`;
+  if (m.unreachable) return `<span class="sub">out of reach</span>`;
+  const arrow = m.move >= 0 ? "▲" : "▼", pc = `${m.pct >= 0 ? "+" : ""}${m.pct.toFixed(1)}%`;
+  return short ? `<b>${money(m.stock)}</b> <span class="${m.move >= 0 ? "pos" : "neg"}">${arrow}${Math.abs(m.pct).toFixed(1)}%</span>`
+               : `${esc(sym)} at <b>${money(m.stock)}</b><div class="sub ${m.move >= 0 ? "pos" : "neg"}">${arrow} ${money(Math.abs(m.move))} (${pc})</div>`;
+}
+
+// A pair's lasting name: its legs' option ids (a list position shifts when an earlier pair closes).
+const pairKey = p => p.legs.map(l => l.option_id).join(",");
+
+function pairMultControl(p) {
+  // One multiplier for the whole pair: sets both legs' own multipliers (empty = follow the page's).
+  const legs = p.legs.filter(l => l.held && l.side === "long");
+  if (!legs.length) return "";
+  const custom = legs.filter(l => l.multiple_custom).map(l => +l.multiple.toFixed(4));
+  const same = custom.length === legs.length && custom.every(m => m === custom[0]);
+  const value = same ? custom[0] : "";
+  const ph = custom.length && !same ? "mixed" : +snap.multiple.toFixed(4);
+  const key = esc(pairKey(p));
+  return `<span class="pill pairmult" title="Target multiplier for this pair (both legs). Empty = follow the page's ${snap.multiple}×">
+    pair target × <input data-pairmult="${key}" data-shown="${value}" type="text" inputmode="decimal" autocomplete="off"
+      class="${value !== "" ? "custom" : ""}" value="${value}" placeholder="${ph}">
+    ${custom.length ? `<button class="tiny" data-pairreset="${key}" title="Follow the page's multiplier again">↺</button>` : ""}</span>`;
+}
+
+async function applyPairMultiple(key, raw) {
+  const p = snap && snap.pairs.find(q => pairKey(q) === key);
+  if (!p) return;   // that pair closed while you typed: change nothing
+  const legs = p.legs.filter(l => l.held && l.side === "long");
+  const v = String(raw ?? "").trim(), m = v === "" ? null : parseFloat(v);
+  const unchanged = legs.every(l => m === null ? !l.multiple_custom : (l.multiple_custom && Math.abs(l.multiple - m) < 1e-9));
+  if (unchanged) return;
+  if (m !== null && !(m >= 0.5 && m <= 10)) {
+    alert("Type a multiplier from 0.5 to 10, or leave it empty to follow the page's.");
+    renderPairs(); return;
+  }
+  const what = m === null ? `Set ${p.name} back to the page's ${snap.multiple}×` : `Set ${p.name} (both legs) to ${m}×`;
+  if (snap.mode === "live" && !snap.paused &&
+      !confirm(`${what}? Its live sell orders move right away.${previewPrices(legs, m ?? snap.multiple)}`)) { renderPairs(); return; }
+  await sendChange(legs.map(l => l.option_id), m, legs.map(l => ["/api/set_leg_multiple", {option_id: l.option_id, multiple: m}]),
+                   () => legs.every(l => legLanded(l.option_id, m)));
+}
+
+const lastPrice = {};
+function renderTicker() {
+  // One row per stock (just NVDA today). Price from Robinhood's last trade, refreshed every second.
+  const syms = [...new Set(snap.pairs.map(p => p.symbol).concat((snap.unpaired || []).map(l => l.symbol)))].filter(Boolean);
+  const info = snap.quote_info || {};
+  const rows = syms.map(sym => {
+    const q = info[sym] || {};
+    const price = q.price ?? (snap.pairs.find(p => p.symbol === sym) || {}).underlying;
+    if (price == null) return "";
+    const prev = lastPrice[sym];
+    lastPrice[sym] = price;
+    const flash = prev == null || prev === price ? "" : price > prev ? "flash-up" : "flash-down";
+    let chg = "";
+    if (q.prev_close) {
+      const d = price - q.prev_close, pc = d / q.prev_close * 100;
+      chg = `<div class="t-chg ${cls(d)}">${d >= 0 ? "▲" : "▼"} ${money(Math.abs(d))} (${pc >= 0 ? "+" : ""}${pc.toFixed(2)}%)</div>
+             <div class="t-sub">today, vs ${money(q.prev_close)} close</div>`;
+    }
+    const ext = q.ext_price && !snap.market.open ? `<div class="t-sub">after hours ${money(q.ext_price)}</div>` : "";
+    // where the stock has to go for each leg you hold to reach its sell price (nearest first)
+    const needs = snap.pairs.filter(p => p.symbol === sym).flatMap(p => p.legs.filter(l => l.held && l.side === "long")
+      .map(l => ({l, p, m: moveNeeded(l, p)}))).filter(x => x.m)
+      .sort((a, b) => Math.abs(a.m.pct ?? 0) - Math.abs(b.m.pct ?? 0))
+      .map(({l, p, m}) => `<div class="t-need" title="${esc(laterText(l, p))}"><span>${esc(l.name)} <span class="sub">${expShort(l.expiration)}</span></span>
+        <span>${moveText(m, sym, true)}</span></div>`).join("");
+    return `<div class="t-row"><div class="t-sym">${esc(sym)}</div>
+      <div class="t-price ${flash}">${money(price)}</div>${chg}${ext}
+      ${needs ? `<div class="t-needs"><div class="t-sub">stock price for each sell price</div>${needs}</div>` : ""}</div>`;
+  }).join("");
+  $("ticker").innerHTML = rows + `<div class="t-sub" style="margin-top:6px">${new Date(snap.updated).toLocaleTimeString()}</div>`;
+  $("ticker").hidden = !rows;
+  keepTickerOnScreen();
+}
+
+// Drag the price box anywhere; the spot is remembered in this browser (double-click resets it).
+const TICKER_KEY = "pairTracker.tickerPos";
+function placeTicker(x, y) {
+  const el = $("ticker"), r = el.getBoundingClientRect();
+  x = Math.min(Math.max(4, x), Math.max(4, window.innerWidth - r.width - 4));
+  y = Math.min(Math.max(4, y), Math.max(4, window.innerHeight - r.height - 4));
+  Object.assign(el.style, {left: x + "px", top: y + "px", right: "auto", bottom: "auto", transform: "none"});
+}
+function keepTickerOnScreen() {
+  const el = $("ticker");
+  if (el.style.left && !el.hidden) { const r = el.getBoundingClientRect(); placeTicker(r.left, r.top); }
+}
+(function () {
+  const el = $("ticker");
+  let grab = null;
+  try {
+    const saved = JSON.parse(localStorage.getItem(TICKER_KEY) || "null");
+    if (Array.isArray(saved)) Object.assign(el.style, {left: saved[0] + "px", top: saved[1] + "px",
+                                                        right: "auto", bottom: "auto", transform: "none"});
+  } catch (e) { /* storage blocked: start in the default spot */ }
+  el.addEventListener("pointerdown", e => {
+    if (e.button !== 0) return;
+    const r = el.getBoundingClientRect();
+    grab = {dx: e.clientX - r.left, dy: e.clientY - r.top};
+    el.setPointerCapture(e.pointerId);
+    el.classList.add("dragging");
+    e.preventDefault();
+  });
+  el.addEventListener("pointermove", e => { if (grab) placeTicker(e.clientX - grab.dx, e.clientY - grab.dy); });
+  const drop = () => {
+    if (!grab) return;
+    grab = null;
+    el.classList.remove("dragging");
+    const r = el.getBoundingClientRect();
+    try { localStorage.setItem(TICKER_KEY, JSON.stringify([Math.round(r.left), Math.round(r.top)])); } catch (e) {}
+  };
+  el.addEventListener("pointerup", drop);
+  el.addEventListener("pointercancel", drop);
+  el.addEventListener("dblclick", () => {
+    Object.assign(el.style, {left: "", top: "", right: "", bottom: "", transform: ""});
+    try { localStorage.removeItem(TICKER_KEY); } catch (e) {}
+  });
+  window.addEventListener("resize", keepTickerOnScreen);
+})();
+
+// Hover text on the pair cards: the cards redraw every second, which would wipe a tooltip before it
+// shows, so hold that redraw while the pointer rests on something with hover text (up to 5 s).
+let tipEl = null, tipAt = 0;
+document.addEventListener("mouseover", e => {
+  const el = e.target.closest ? e.target.closest("#pairs [title]") : null;
+  if (el !== tipEl) { tipEl = el; tipAt = performance.now(); }
+});
+
+// The equation behind a leg's midpoint value, while you hover it. A tooltip of its own: the browser's
+// can't line up several lines, and the cards redraw under it, so it is rebuilt from the latest numbers
+// after each redraw (render) and kept next to the pointer, on screen.
+const eqTip = document.createElement("div");
+eqTip.className = "eq-tip"; eqTip.hidden = true; eqTip.setAttribute("role", "tooltip");
+document.body.appendChild(eqTip);
+let eqPt = null;   // where the pointer is, while it's on the page
+function showEq() {
+  const el = eqPt && document.elementFromPoint(eqPt.x, eqPt.y);
+  const host = el && el.closest ? el.closest("[data-eq]") : null;
+  const text = host ? eqText(host.dataset.eq) : "";
+  if (!text) { eqTip.hidden = true; return; }
+  if (eqTip.textContent !== text) eqTip.textContent = text;   // plain text: nothing in it is read as HTML
+  eqTip.hidden = false;
+  const pad = 8, w = eqTip.offsetWidth, h = eqTip.offsetHeight;
+  let left = eqPt.x + 14, top = eqPt.y + 18;
+  if (left + w > innerWidth - pad) left = Math.max(pad, innerWidth - pad - w);
+  if (top + h > innerHeight - pad) top = Math.max(pad, eqPt.y - 10 - h);
+  eqTip.style.left = left + "px"; eqTip.style.top = top + "px";
+}
+document.addEventListener("mousemove", e => { eqPt = {x: e.clientX, y: e.clientY}; showEq(); });
+document.documentElement.addEventListener("mouseleave", () => { eqPt = null; eqTip.hidden = true; });
+window.addEventListener("scroll", () => { if (eqPt) showEq(); }, true);
+
+// The same Black-Scholes value the engine computes for the leg (rho.bs_price), step by step with the
+// pair's own numbers: the midpoint, the strike, the volatility it priced at, and the market hours left.
+function eqText(key) {
+  const [i, id] = String(key).split("|");
+  const p = snap && snap.pairs ? snap.pairs[+i] : null;
+  const l = p ? p.legs.find(x => x.option_id === id) : null;
+  if (!l || l.mid_price == null || p.mid == null) return "";
+  const S = p.mid, K = l.strike, t = p.t_trd, iv = l.iv_trd == null ? null : l.iv_trd / 100, r = RATE;
+  const f = (x, n) => Number(x).toFixed(n), call = l.type === "call";
+  const head = [`${p.symbol} ${l.name} ${expShort(p.expiration)}, valued with ${p.symbol} at the ${money(S)} midpoint`,
+    `midpoint = (${p.legs.map(x => f(x.strike, 2)).join(" + ")}) ÷ ${p.legs.length} = ${f(S, 2)}`, ""];
+  if (!(t > 0) || !(iv > 0))
+    return head.concat([`No market hours left: it's worth its intrinsic value, ${money(l.mid_price)} a share`]).join("\n");
+  const sd = iv * Math.sqrt(t), a = Math.log(S / K), b = (r + iv * iv / 2) * t;
+  const d1 = (a + b) / sd, d2 = d1 - sd, disc = Math.exp(-r * t);
+  const price = call ? S * ncdf(d1) - K * disc * ncdf(d2) : K * disc * ncdf(-d2) - S * ncdf(-d1);
+  const src = l.iv_source === "robinhood" ? "Robinhood's IV, restated on the trading clock"
+    : l.iv_source === "thin" ? "rough: from a mark with under 5¢ of time value"
+    : "read from its live mark";
+  const closed = snap.market && !snap.market.open ? " (frozen while the market is closed)" : "";
+  const lines = head.concat([
+    "Black-Scholes, the model the engine prices with:",
+    `S = ${f(S, 2)}    stock at the midpoint`,
+    `K = ${f(K, 2)}    strike`,
+    `σ = ${f(iv, 4)}    volatility ${f(iv * 100, 1)}%, ${src}`,
+    `t = ${f(t * 252 * 6.5, 2)} h ÷ (252 × 6.5 h) = ${f(t, 6)} years`,
+    `    market hours left to expiry${closed}`,
+    `r = ${f(r, 2)}      interest rate`,
+    "",
+    `σ√t = ${f(iv, 4)} × √${f(t, 6)} = ${f(sd, 5)}`,
+    "d1  = [ln(S/K) + (r + σ²/2)·t] ÷ σ√t",
+    `    = [${f(a, 5)} + ${f(b, 5)}] ÷ ${f(sd, 5)} = ${f(d1, 4)}`,
+    `d2  = d1 − σ√t = ${f(d2, 4)}`,
+    "",
+    call ? "call = S·N(d1) − K·e^(−r·t)·N(d2)" : "put = K·e^(−r·t)·N(−d2) − S·N(−d1)",
+    call ? `     = ${f(S, 2)} × ${f(ncdf(d1), 4)} − ${f(K, 2)} × ${f(disc, 5)} × ${f(ncdf(d2), 4)}`
+         : `    = ${f(K, 2)} × ${f(disc, 5)} × ${f(ncdf(-d2), 4)} − ${f(S, 2)} × ${f(ncdf(-d1), 4)}`,
+    `${call ? "     " : "    "}= ${money(price)} a share`,
+    "",
+    `× ${l.contracts_used} contracts × 100 shares = ${money(price * 100 * l.contracts_used)} of the pair's ${money(p.net_value)}`,
+    "N(x): the chance a standard normal value is below x",
+  ]);
+  if (Math.abs(price - l.mid_price) >= 0.005) lines.push(`(the engine's figure: ${money(l.mid_price)} a share)`);
+  return lines.join("\n");
+}
+
+function render() {
+  if (!snap || !snap.ready) { $("status").textContent = snap && snap.error ? "Problem: " + snap.error : "Starting… first numbers in a few seconds"; return; }
+  withScroll(() => {
+    renderHeader(); renderTicker(); renderSuggestions(); renderExposure(); renderTimeValue();
+    // don't redraw the pair tables while you're typing a multiplier in one (it would wipe your typing)
+    const typing = document.activeElement && document.activeElement.matches
+      && document.activeElement.matches("[data-legmult], [data-pairmult]");
+    const reading = tipEl && tipEl.isConnected && performance.now() - tipAt < 5000;
+    if (!typing && !reading) renderPairs();
+    const paused = $("pairs-paused");   // at the top, or at the bottom when the box you're in is up there
+    paused.hidden = !typing;
+    if (typing) paused.classList.toggle("at-bottom", document.activeElement.getBoundingClientRect().top < 60);
+    if ($("autoDlg").open) refreshAutoDialog();   // its prices stay live too
+    $("activity").innerHTML = (snap.activity || []).map(a => `<li><time>${esc(a.time)}</time>${esc(a.msg)}</li>`).join("") || "<li class='sub'>Nothing yet.</li>";
+  });
+  if (eqPt) showEq();   // a midpoint equation you're hovering: rebuilt from the new numbers
+  document.querySelectorAll("[data-sell]").forEach(b => b.onclick = () => openConfirm(b.dataset.sell));
+  document.querySelectorAll("[data-limit]").forEach(b => b.onclick = () => openConfirm(b.dataset.limit, "limit"));
+  document.querySelectorAll("[data-replace]").forEach(b => b.onclick = () => openConfirm(b.dataset.replace, "replace"));
+  document.querySelectorAll("[data-back]").forEach(b => b.onclick = () => post("/api/back_to_target", {option_id: b.dataset.back}));
+  document.querySelectorAll("[data-manage]").forEach(b => b.onclick = () => post("/api/manage_again", {option_id: b.dataset.manage}));
+  document.querySelectorAll("[data-legmult]").forEach(inp => {
+    inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } };
+    inp.onblur = () => {   // Enter or click away; just passing through the box changes nothing
+      if (inp.value.trim() !== (inp.dataset.shown ?? "")) applyLegMultiple(inp.dataset.legmult, inp.value);
+    };
+  });
+  document.querySelectorAll("[data-legreset]").forEach(b => b.onclick = () => applyLegMultiple(b.dataset.legreset, ""));
+  document.querySelectorAll("[data-pairmult]").forEach(inp => {
+    inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } };
+    inp.onblur = () => {   // an empty "mixed" box you only clicked through must not reset both legs
+      if (inp.value.trim() !== (inp.dataset.shown ?? "")) applyPairMultiple(inp.dataset.pairmult, inp.value);
+    };
+  });
+  document.querySelectorAll("[data-pairreset]").forEach(b => b.onclick = () => applyPairMultiple(b.dataset.pairreset, ""));
+  const n = snap.totals.suggestions || 0;
+  document.title = n ? `(${n}) Sell suggested · Pair Tracker` : "Pair Tracker";
+}
+
+let confirmMode = "now";
+
+function openConfirm(optionId, mode = "now") {
+  const l = heldLegs().find(x => x.option_id === optionId);
+  if (!l) return;
+  pending = l;
+  confirmMode = mode;
+  const live = snap.mode === "live";
+  if (mode === "replace") return openReplace(l, live);
+  const atLimit = mode === "limit" && l.limit != null;
+  $("c-price-row").hidden = false;
+  $("c-title").textContent = atLimit
+    ? `Limit sell ${l.symbol} ${l.name} (${expShort(l.expiration)}) at ${money(l.limit)}`
+    : `Sell ${l.symbol} ${l.name} (${expShort(l.expiration)}) now`;
+  $("c-mode").className = "warnbox " + (live ? "live" : "dry");
+  $("c-mode").textContent = (live
+    ? "LIVE: puts in a real sell-to-close limit order on Robinhood (replacing this leg's target order, if any). A filled order can't be undone."
+    : snap.mode === "demo" ? "Demo: the simulated broker handles it; nothing is sent to Robinhood." : "Dry run: nothing will be sent to Robinhood.")
+    + (atLimit ? ` The order sits at ${money(l.limit)}, this leg's sell price needed, and fills only if a buyer pays that or more.`
+                 + ` It stays at this price (it doesn't follow the target) until it fills, the market closes, you press `
+                 + `${snap.paused ? "Cancel my order" : "Back to automatic"} or Replace at target, or automated sells are turned off `
+                 + `("Turn off automated sells" cancels it and forgets this price).` : "");
+  $("c-details").innerHTML = `
+    <dt>Contracts it will sell</dt><dd>${l.free_qty ?? l.qty}${l.foreign_pending ? ` <span class="sub">(${l.foreign_pending} already in your own orders)</span>` : ""}</dd>
+    <dt>Bid / mark / ask</dt><dd>${money(l.bid)} / ${money(l.mark)} / ${money(l.ask)}</dd>
+    ${l.rebought ? `<dt>Pair's sell price</dt><dd>none: you bought more after part of this pair sold, so the engine leaves this leg alone</dd>`
+      : `<dt>Sell price needed</dt><dd>${money(l.limit)}</dd>
+    ${l.suggest_at != null ? `<dt>${esc(snap.second_label)}</dt><dd>${money(l.suggest_at)}</dd>` : ""}`}
+    <dt>Cost basis</dt><dd>${money(l.cost)}</dd>`;
+  $("c-price").value = num(atLimit ? l.limit : (l.bid ?? l.mark));
+  $("c-result").textContent = "";
+  $("c-cancel").textContent = "Cancel";
+  $("c-ok").disabled = false;
+  $("c-ok").className = live ? "danger" : "primary";
+  $("c-ok").textContent = live ? (atLimit ? "Place real limit sell" : "Sell for real") : "Confirm";
+  updateProceeds();
+  $("confirm").showModal();
+}
+
+let replaceShown = null;  // the price shown in the open replace dialog
+
+function openReplace(l, live) {
+  const orders = l.open_orders || [];
+  const cancels = orders.map(o => `<div>sell ${o.quantity - o.filled} @ ${o.price == null ? esc(o.type || "market/stop") : money(o.price)}
+    <span class="sub">(${o.by === "engine" ? "the engine's order" : "your order, placed in Robinhood"})</span></div>`).join("")
+    || "<div class='sub'>none open right now</div>";
+  const qty = l.qty;
+  const which = l.auto_is_second ? `${esc(snap.second_label)} (the other leg sold; full target ${money(l.target_limit)})`
+                                 : "its target price";
+  replaceShown = l.auto_limit;
+  $("c-title").textContent = `Replace the sell order on ${l.symbol} ${l.name} (${expShort(l.expiration)}) with ${l.auto_is_second ? snap.second_label : "the target price"}`;
+  $("c-mode").className = "warnbox " + (live ? "live" : "dry");
+  $("c-mode").textContent = (live
+    ? `LIVE: cancels the order(s) below on Robinhood, including ones you placed yourself, and puts in a real sell-to-close limit order at ${which}.`
+    : snap.mode === "demo" ? "Demo: the simulated broker handles it; nothing is sent to Robinhood." : "Dry run: nothing will be sent to Robinhood.")
+    + (snap.paused ? ` Automated sells are off, so the new order stays at ${money(l.auto_limit)} for today's session.`
+                   : ` Automated sells are on, so the engine then keeps this leg's order at the moving price.`)
+    + " If the price moves before you confirm, nothing happens and you can look again.";
+  $("c-details").innerHTML = `
+    <dt>Cancels</dt><dd>${cancels}</dd>
+    <dt>Puts in</dt><dd><b>limit sell ${qty} @ ${money(l.auto_limit)}</b><div class="sub">${which}, now</div></dd>
+    <dt>Bid / mark / ask</dt><dd>${money(l.bid)} / ${money(l.mark)} / ${money(l.ask)}</dd>
+    <dt>Cost basis</dt><dd>${money(l.cost)}</dd>`;
+  $("c-price-row").hidden = true;
+  const proceeds = (l.auto_limit || 0) * 100 * qty;
+  $("c-proceeds").innerHTML = `If it fills: ${money(proceeds)} · P/L <span class="${cls(proceeds - l.cost)}">${money(proceeds - l.cost, true)}</span> before fees.`
+    + (l.auto_limit != null && l.bid != null && l.bid >= l.auto_limit ? " The bid is already at the target, so it sells right away." : "");
+  $("c-result").textContent = "";
+  $("c-cancel").textContent = "Cancel";
+  $("c-ok").disabled = l.auto_limit == null;
+  $("c-ok").className = live ? "danger" : "primary";
+  $("c-ok").textContent = live ? "Replace with real order" : "Confirm";
+  if (!$("confirm").open) $("confirm").showModal();
+}
+
+function updateProceeds() {
+  if (!pending || confirmMode === "replace") return;
+  const price = parseFloat($("c-price").value) || 0;
+  const proceeds = price * 100 * (pending.free_qty ?? pending.qty);
+  $("c-proceeds").innerHTML = `Est. proceeds ${money(proceeds)} · P/L <span class="${cls(proceeds - pending.cost)}">${money(proceeds - pending.cost, true)}</span> before fees.
+    A limit at or below the bid fills right away at the bid or better.`;
+}
+
+$("c-price").oninput = updateProceeds;
+$("c-cancel").onclick = () => { $("confirm").close(); pending = null; };
+$("c-ok").onclick = async () => {
+  let r;
+  if (confirmMode === "replace") {
+    $("c-ok").disabled = true;
+    r = await post("/api/replace_with_target", {option_id: pending.option_id, price: replaceShown});
+  } else {
+    const price = parseFloat($("c-price").value);
+    if (!(price > 0)) { $("c-result").textContent = "Enter a limit price above $0."; return; }
+    $("c-ok").disabled = true;
+    r = await post("/api/sell_now", {option_id: pending.option_id, price});
+  }
+  $("c-result").innerHTML = r.ok ? "<span class='pos'>Sent to the engine. Watch this leg's Order column and the activity list.</span>"
+                                 : `<span class="neg">${esc(r.message || r.error)}</span>`;
+  $("c-cancel").textContent = "Close";
+};
+async function applySecondLeg() {
+  // After one leg sells: the other at a % of its target, or a % of what you paid for it.
+  if (!snap || !snap.ready) return;
+  const basis = $("sl-basis").value, pct = parseFloat($("sl-pct").value);
+  const hi = basis === "cost" ? 500 : 100;
+  const same = basis === snap.second_leg_basis &&
+    Math.abs(pct - (basis === "cost" ? snap.second_leg_cost_pct : snap.second_leg_pct)) < 1e-9;
+  if (same) return;
+  if (!(pct >= 1 && pct <= hi)) { alert(`Type a percentage from 1 to ${hi}.`); renderHeader(); return; }
+  const label = basis === "cost" ? `${pct}% of what you paid for it` : `${pct}% of its target`;
+  if (snap.mode === "live" && !snap.paused &&
+      !confirm(`After one leg sells, sell the other at ${label}? Orders already on that rule move right away.`)) {
+    renderHeader(); return;
+  }
+  await sendChange(["second"], null, [["/api/set_second_leg", {basis, pct}]], () => snap.second_leg_basis === basis &&
+    Math.abs((basis === "cost" ? snap.second_leg_cost_pct : snap.second_leg_pct) - pct) < 1e-9);
+}
+$("sl-basis").addEventListener("change", () => {
+  // switching the basis shows that basis's own percentage (50% of cost / 30% of target by default)
+  $("sl-pct").value = $("sl-basis").value === "cost" ? (snap.second_leg_cost_pct ?? 50) : (snap.second_leg_pct ?? 30);
+  applySecondLeg();
+});
+$("sl-pct").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
+$("sl-pct").addEventListener("blur", applySecondLeg);
+
+function previewPrices(legs, newMult) {
+  // What each affected leg's sell price becomes under the engine's own rule (the target scales with
+  // the multiplier; a leg on the second-leg rule sells at its % of that; your own price and a hold
+  // stay as they are), and whether the bid is already there, so its order would sell right away.
+  // A leg that sells right away also moves the other leg of its pair: once it's gone (about 10 s) the
+  // engine drops that leg to the second-leg price at once, which can sell it too.
+  const up = t => { const step = t >= 3 ? 0.05 : 0.01; return Math.max(Math.ceil(+(t / step).toFixed(6)) * step, 0.01); };
+  const ids = new Set(legs.map(l => l.option_id)), sells = [];
+  const lines = legs.filter(l => l.target != null && l.multiple).map(l => {
+    if (l.on_hold) return `\n  ${l.name}: on hold, no order (unchanged)`;
+    if (l.rebought && l.manual_price == null) return `\n  ${l.name}: left alone, you bought more after part of this pair sold (no order)`;
+    if (l.free_qty === 0 && !l.order) return `\n  ${l.name}: all ${l.qty} contracts are in your own Robinhood sell orders, left alone`;
+    if (l.manual_price != null) return `\n  ${l.name}: stays at your price ${money(l.manual_price)}`;
+    if (l.second_rule && snap.second_leg_basis === "cost") return `\n  ${l.name}: stays at ${money(l.limit)} (${snap.second_label})`;
+    const t = l.target * (newMult / l.multiple);
+    const lim = up(l.second_rule ? t * snap.second_leg_pct / 100 : t);
+    const now = l.bid != null && l.bid >= lim - 1e-9;
+    if (now && !l.second_rule) sells.push(l.option_id);
+    return `\n  ${l.name}: sell price ${money(l.limit)} -> ${money(lim)}${l.second_rule ? ` (${snap.second_label})` : ""}${
+      now ? `  !! bid ${money(l.bid)} is already there: SELLS RIGHT AWAY` : ""}`;
+  });
+  if (snap.second_leg_auto) for (const id of sells) {
+    const p = snap.pairs.find(q => q.legs.some(x => x.option_id === id));
+    if (!p) continue;
+    const s = p.legs.find(x => x.option_id === id);
+    for (const o of p.legs) {
+      if (o === s || sells.includes(o.option_id) || !o.held || o.side !== "long" || o.on_hold || o.rebought ||
+          (o.free_qty === 0 && !o.order) || o.manual_price != null || o.target == null || !o.multiple) continue;
+      const at = snap.second_leg_basis === "cost"
+        ? (o.avg_cost ? up(o.avg_cost * snap.second_leg_cost_pct / 100) : null)
+        : up(o.target * ((ids.has(o.option_id) ? newMult : o.multiple) / o.multiple) * snap.second_leg_pct / 100);
+      if (at != null) lines.push(`\n  then ${o.name}: moves to ${money(at)} (${snap.second_label}) once ${s.name} sells${
+        o.bid != null && o.bid >= at - 1e-9 ? `  !! bid ${money(o.bid)} is already there: SELLS TOO` : ""}`);
+    }
+  }
+  return lines.join("");
+}
+
+async function applyLegMultiple(oid, raw) {
+  // One option's own target multiplier; empty = follow the page's multiplier again.
+  const leg = snap && heldLegs().find(x => x.option_id === oid);
+  if (!leg) return;
+  const v = String(raw ?? "").trim(), m = v === "" ? null : parseFloat(v);
+  const current = leg.multiple_custom ? leg.multiple : null;
+  if (m === null ? current === null : (current !== null && Math.abs(m - current) < 1e-9)) return;  // nothing changed
+  if (m !== null && !(m >= 0.5 && m <= 10)) {
+    alert("Type a multiplier from 0.5 to 10, or leave it empty to follow the page's.");
+    renderPairs(); return;
+  }
+  const what = m === null ? `Set ${leg.name} back to the page's ${snap.multiple}×` : `Set ${leg.name}'s own target to ${m}×`;
+  if (snap.mode === "live" && !snap.paused &&
+      !confirm(`${what}? Its live sell order moves right away.${previewPrices([leg], m ?? snap.multiple)}`)) { renderPairs(); return; }
+  await sendChange([oid], m, [["/api/set_leg_multiple", {option_id: oid, multiple: m}]], () => legLanded(oid, m));
+}
+
+async function applyMultiple(m) {
+  if (!snap) return;
+  if (!(m >= 0.5 && m <= 10)) { alert("Type a multiplier from 0.5 to 10."); $("mult-input").value = snap.multiple; return; }
+  if (Math.abs(m - snap.multiple) < 1e-9) return;
+  if (snap.mode === "live" && !snap.paused &&
+      !confirm(`Change the target to ${m}×? Your live sell orders move to the new prices right away.${previewPrices(heldLegs().filter(l => !l.multiple_custom && l.side === "long"), m)}`)) {
+    $("mult-input").value = snap.multiple; return;
+  }
+  await sendChange(["*"], null, [["/api/set_multiple", {multiple: m}]], () => Math.abs(snap.multiple - m) < 1e-9);
+}
+$("mult-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
+$("mult-input").addEventListener("blur", e => applyMultiple(parseFloat(e.target.value)));  // Enter or click away
+document.querySelectorAll("[data-mult]").forEach(b => b.onclick = async () => {
+  if (snap && Math.abs(parseFloat(b.dataset.mult) - snap.multiple) < 1e-9) return;
+  if (snap && snap.mode === "live" && !snap.paused &&
+      !confirm(`Change the target to ${b.dataset.mult}×? Your live sell orders move to the new prices right away.` + previewPrices(heldLegs().filter(l => !l.multiple_custom && l.side === "long"), parseFloat(b.dataset.mult)))) return;
+  const m = parseFloat(b.dataset.mult);
+  b.disabled = true;
+  await sendChange(["*"], null, [["/api/set_multiple", {multiple: m}]], () => Math.abs(snap.multiple - m) < 1e-9);
+  b.disabled = false;
+});
+// ---- Turn-on dialog: what gets placed, with each option's multiplier (changeable here) --------
+const autoLegs = () => snap.pairs.flatMap(p => p.legs.filter(l => l.held && l.side === "long"));
+const autoPending = new Map();   // option_id ("*" page multiplier, "second" rule) -> its change still going in
+const UPDATING = "Updating the prices…";
+
+function sendChange(keys, m, posts, landed) {
+  // Every change that moves the target prices goes through here, from this dialog or anywhere on
+  // the page (a card's box, the header's box or presets, the second-leg rule): the engine's numbers
+  // show it only after its next tick, so until they do the dialog says "Updating the prices…" and
+  // Turn on waits for it and asks again. The click that opens the dialog can itself send one (blur).
+  const job = (async () => {
+    try {   // never rejects: Turn on waits for this, so a failed request mustn't leave it waiting forever
+      for (const [path, body] of posts) {
+        const r = await post(path, body);
+        if (r && r.ok === false && r.message) { alert(r.message); return false; }
+      }
+      for (let i = 0; i < 20; i++) {   // wait until the engine's numbers include the change
+        await load();
+        if (!snap) return false;
+        if (landed()) return true;
+        await new Promise(res => setTimeout(res, 300));
+      }
+    } catch (e) { /* the dialog shows the engine's numbers either way */ }
+    return false;   // refused, failed, or not in the engine's numbers yet
+  })();
+  job.m = m;   // shown again if the dialog is (re)opened before it lands
+  for (const k of keys) autoPending.set(k, job);
+  $("a-msg").textContent = UPDATING;
+  return job.then(() => {
+    const mine = keys.filter(k => autoPending.get(k) === job);   // (not one a newer change replaced)
+    for (const k of mine) autoPending.delete(k);   // all of them first: Turn on's wait loops while any is left
+    if (!autoPending.size && $("a-msg").textContent === UPDATING) $("a-msg").textContent = "";
+    for (const k of mine) refreshAutoDialog(k);
+  });
+}
+function legLanded(oid, m) {
+  const x = heldLegs().find(y => y.option_id === oid);
+  return !x || (m === null ? !x.multiple_custom : x.multiple_custom && Math.abs(x.multiple - m) < 1e-9);
+}
+
+function autoWhat(l) {
+  // contracts not in YOUR Robinhood orders (the engine's own "Sell at" order doesn't count as yours)
+  const free = l.free_qty ?? Math.max(Math.round(l.qty - (l.pending_sell || 0)), 0);
+  if (l.on_hold) return `<span class="sub">on hold (you cancelled its order); press Manage again first</span>`;
+  if (l.rebought && l.manual_price == null) return `<span class="sub">left alone: you bought more after part of this pair sold (no order)</span>`;
+  if (l.limit == null) return `<span class="sub">waiting for steady data; ordered as soon as the numbers are in</span>`;
+  if (l.manual_price != null) return `<span class="sub">keeps your "Sell at" order at ${money(l.manual_price)}</span>`;
+  if (free <= 0) return `<span class="sub">all ${l.qty} contracts are in your own Robinhood sell orders, left alone</span>`;
+  return `<b>limit sell ${free} @ ${money(l.limit)}</b>` + (l.marketable
+    ? ` <span class="pill warn">bid ${money(l.bid)} is already there: sells right away</span>`
+    : ` <span class="sub">(now ${money(l.mark)}, ${pct(l.change_needed_pct)} to go)</span>`);
+}
+
+function refreshAutoDialog(only) {
+  // Keeps the dialog's prices live (once a second). Never touches the box you're in, nor one whose
+  // change is still going in (the engine's numbers don't have it yet) unless `only` names it.
+  for (const l of autoLegs()) {
+    const inp = $("a-plan").querySelector(`[data-amult="${CSS.escape(l.option_id)}"]`);
+    const what = $("a-plan").querySelector(`[data-awhat="${CSS.escape(l.option_id)}"]`);
+    if (what) what.innerHTML = autoWhat(l);
+    if (inp && document.activeElement !== inp && (l.option_id === only || !autoPending.has(l.option_id))) {
+      inp.value = inp.dataset.shown = fmtMult(l.multiple ?? snap.multiple);
+      inp.classList.toggle("custom", !!l.multiple_custom);
+      inp.title = l.multiple_custom ? "This option's own multiplier. Empty it to follow the page's again."
+                                    : `Follows the page's ${snap.multiple}×. Type a number to give this option its own.`;
+    }
+  }
+}
+
+async function setAutoMult(oid, raw) {
+  // The same setting as the option's Target × box on the page. Automated sells are off while this
+  // dialog is open, so nothing is placed or moved; the prices update once the engine has the change.
+  const l = heldLegs().find(x => x.option_id === oid);
+  if (!l) return;
+  const v = String(raw ?? "").trim(), m = v === "" ? null : parseFloat(v);
+  const unchanged = m === null ? !l.multiple_custom : Math.abs(m - (l.multiple ?? snap.multiple)) < 1e-9;
+  if (unchanged && !autoPending.has(oid)) { refreshAutoDialog(oid); return; }   // (an earlier change still going in: send this one too)
+  const going = autoPending.get(oid);   // the box shows a change still going in (e.g. from its pair card): don't send it twice
+  if (going && (going.m == null ? m === null : m !== null && Math.abs(m - going.m) < 1e-9)) return;
+  if (m !== null && !(m >= 0.5 && m <= 10)) {
+    alert("Type a multiplier from 0.5 to 10, or leave it empty to follow the page's.");
+    refreshAutoDialog(oid); return;
+  }
+  if (!snap.paused) { alert("Automated sells are already on. Change the multiplier in the table instead."); return; }
+  await sendChange([oid], m, [["/api/set_leg_multiple", {option_id: oid, multiple: m}]], () => legLanded(oid, m));
+}
+
+function openAutoDialog() {
+  const live = snap.mode === "live";
+  $("a-mode").className = "warnbox " + (live ? "live" : "dry");
+  $("a-mode").textContent = live
+    ? "LIVE: these are real sell-to-close limit orders on your Robinhood account, good for the day."
+    : "Demo: the simulated broker handles these; nothing is sent to Robinhood.";
+  const legs = autoLegs();
+  $("a-plan").innerHTML = legs.length ? `<thead><tr><th class="l">Option</th>
+      <th title="Each option's target multiplier. Change it here before turning on; empty = follow the page's">Target ×</th>
+      <th class="l">Places</th></tr></thead><tbody>${legs.map(l => `<tr>
+      <td class="l"><span class="nowrap">${esc(l.symbol)} ${esc(l.name)}</span> <span class="sub nowrap">${expShort(l.expiration)}</span></td>
+      <td class="legmult"><input data-amult="${esc(l.option_id)}" type="text" inputmode="decimal" autocomplete="off"></td>
+      <td class="wrap" data-awhat="${esc(l.option_id)}"></td></tr>`).join("")}</tbody>`
+    : "<tr><td class='sub'>No long legs to sell.</td></tr>";
+  $("a-plan").querySelectorAll("[data-amult]").forEach(inp => {
+    inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } };
+    inp.onblur = () => {   // Enter or click away. A box you only clicked through sends nothing, even if
+      // the engine's number changed meanwhile (it would pin the old one as this option's own).
+      if (inp.value.trim() === (inp.dataset.shown ?? "")) {
+        if (!autoPending.has(inp.dataset.amult)) refreshAutoDialog(inp.dataset.amult);
+        return;
+      }
+      setAutoMult(inp.dataset.amult, inp.value);
+    };
+  });
+  // A change typed before the dialog was closed may still be going in: Turn on waits for it (and asks
+  // again), and its box shows what you typed rather than the engine's old number.
+  $("a-msg").textContent = autoPending.size ? UPDATING : "";
+  refreshAutoDialog();
+  for (const [oid, job] of autoPending) {
+    const inp = $("a-plan").querySelector(`[data-amult="${CSS.escape(oid)}"]`);
+    if (inp) inp.value = inp.dataset.shown = job.m == null ? "" : fmtMult(job.m);
+  }
+  $("a-notes").innerHTML = `Target = that option's multiplier × (its pair's net value at the midpoint ÷ 2 legs ÷ its contracts).
+    A multiplier changed here is kept, like the Target × boxes on the page; nothing is placed until you press Turn on.
+    When one leg of a pair sells, the other leg's order moves to ${esc(snap.second_label)}. <b>Close to expiration the targets fall fast:</b>
+    in the last day or two they can drop below the current price, and on expiration morning they're near $0.01, so a leg
+    still held then sells right away at the bid. Watch the % next to each sell price. "Turn off automated sells", or Ctrl-C in
+    the program's window, cancels the engine's orders. Orders you placed yourself are never touched.`;
+  $("a-ok").textContent = live ? "Turn on: place real orders" : "Turn on";
+  $("a-ok").disabled = false;
+  $("autoDlg").showModal();
+  $("a-cancel").focus();   // not the first multiplier box
+}
+$("a-cancel").onclick = () => $("autoDlg").close();
+$("a-ok").onclick = async () => {
+  if (autoPending.size) {   // a change is still going in (typed here or anywhere on the page): wait for
+    $("a-ok").disabled = true;   // all of them, then show the new prices before anything is placed
+    let ok = true;
+    while (autoPending.size) ok = (await Promise.all([...autoPending.values()])).every(Boolean) && ok;
+    $("a-ok").disabled = false;
+    $("a-msg").textContent = ok ? "Prices updated for your change. Check them, then press Turn on again."
+      : "A change didn't go through; the boxes show what the engine has now. Check the prices, then press Turn on again.";
+    return;
+  }
+  $("a-ok").disabled = true;
+  const r = await post("/api/resume");
+  if (r && r.ok === false && r.message) alert(r.message);
+  $("autoDlg").close();
+  load();
+};
+$("pause").onclick = async () => {
+  if (!snap || !snap.ready || snap.mode === "dry-run") return;  // no clicks before real data arrives
+  if (snap.paused) return openAutoDialog();
+  $("pause").disabled = true;
+  const r = await post("/api/pause");
+  if (r && r.ok === false && r.message) alert(r.message);
+  $("pause").disabled = false;
+  load();
+};
+
+async function load() {
+  try {
+    snap = JSON.parse(DEMO_SNAPSHOT);
+    failures = 0; render();
+    // An open replace dialog follows the price: if it moved, show the new one before you confirm.
+    if ($("confirm").open && confirmMode === "replace" && pending) {
+      const fresh = heldLegs().find(x => x.option_id === pending.option_id);
+      if (fresh && fresh.auto_limit !== replaceShown && !$("c-ok").disabled) {
+        const old = replaceShown;
+        pending = fresh;
+        openReplace(fresh, snap.mode === "live");
+        $("c-result").innerHTML = `<span class="neg">The price changed from ${money(old)} to ${money(fresh.auto_limit)}. Check it before confirming.</span>`;
+      }
+    }
+  } catch (e) {
+    failures++;
+    if (failures > 2) $("status").textContent = "Can't reach the engine. Is rh_app.py still running?";
+  }
+}
+load();
+setInterval(load, 1000);
+</script>
+
+</html>
